@@ -35,7 +35,7 @@ HydrawisePlatform.prototype = {
 
 				data.relays.map(function (z, i) {
 
-					var acc = new Accessory(z.name, uuid.generate(that.config.controller_id + z.relay_id));
+					var acc = new Accessory(z.name, uuid.generate(that.config.controller_id + z.relay_id + 'hydrawise'));
 					acc.getServices = function(){
 						return acc.services;
 					};
