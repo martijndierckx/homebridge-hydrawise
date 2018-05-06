@@ -1,5 +1,4 @@
 const Hydrawise = require('hydrawise-api');
-var HydrawiseDevice = require('./lib/device.js');
 var Service, Characteristic, Accessory, uuid;
 
 module.exports = function(homebridge) {
