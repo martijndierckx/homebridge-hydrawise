@@ -19,7 +19,7 @@ Configuration sample:
 		{
 			"platform": "Hydrawise",
 			"name": "Hydrawise",
-            "api_key": "your API key"
+			"api_key": "your API key"
 		}
 	],
 
