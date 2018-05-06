@@ -1,7 +1,7 @@
 {
   "name": "homebridge-hydrawise",
   "version": "0.0.1",
-  "description": "An homebridge plugin that creates sprinkler accessories for all your Hydrawise zones",
+  "description": "A homebridge plugin that creates sprinkler accessories for all your Hydrawise zones",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
