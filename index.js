@@ -16,6 +16,8 @@ function HydrawisePlatform(log, config) {
 	this.config = config;
 	this.clientConfig = {
 		api_key: config.api_key,
+		default_runtime: config.default_runtime || 600,
+		polling_interval: config.polling_interval || 5000
 		//controller_id: config.controller_id
 	};
 };
@@ -26,10 +28,10 @@ HydrawisePlatform.prototype = {
 
 		var that = this;
 
-		const hw = Hydrawise(this.clientConfig.api_key);
-		//hw.setcontroller(this.clientConfig.controller_id);
+		const hw = Hydrawise(that.clientConfig.api_key);
+		//hw.setcontroller(that.clientConfig.controller_id);
 
-		hw.statusschedule(/*this.clientConfig.controller_id*/)
+		hw.statusschedule(/*that.clientConfig.controller_id*/)
 			.then(function(data) {
 				that.zones = [];
 
@@ -87,8 +89,8 @@ HydrawisePlatform.prototype = {
 							});
 					};
 
-					// Update every 5 seconds, even without homekit asking
-					setInterval(getZoneStatus, 5000);
+					// Update every X seconds, even without homekit asking
+					setInterval(getZoneStatus, that.clientConfig.polling_interval);
 
 					/*service.getCharacteristic(Characteristic.ProgramMode)
 						.on('get', function (callback) {
@@ -102,7 +104,7 @@ HydrawisePlatform.prototype = {
 						})
 						.on('set', function (state, callback) {
 							if(state == 1) {
-								hw.setzone('run', {period_id: '123', custom: z.run_seconds+'', relay_id: z.relay_id})
+								hw.setzone('run', {period_id: '123', custom: (z.run_seconds||that.clientConfig.default_runtime)+'', relay_id: z.relay_id})
 									.then(function(data) {
 										callback(null, state);
 
