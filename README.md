@@ -21,7 +21,7 @@ Configuration sample:
 			"name": "Hydrawise",
 			"api_key": "your API key",
 			"default_runtime": "600",
-			"polling_interval": "5000"
+			"polling_interval": "10000"
 		}
 	],
 
@@ -33,4 +33,4 @@ Fields:
 * "name": Can be anything (required)
 * "api_key": Can be found when going to 'My Account' on https://app.hydrawise.com (required)
 * "default_runtime": Fallback duration in seconds if not able to detect the duration from Hydrawise (default 600)
-* "polling_interval": Interval in ms between background status updates (default 5000)
+* "polling_interval": Interval in ms between background status updates (default & minimum 10000)
