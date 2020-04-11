@@ -17,7 +17,7 @@ function HydrawisePlatform(log, config) {
 	this.clientConfig = {
 		api_key: config.api_key,
 		default_runtime: config.default_runtime || 600,
-		polling_interval: config.polling_interval || 5000
+		polling_interval: config.polling_interval || 10000
 		//controller_id: config.controller_id
 	};
 };
