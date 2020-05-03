@@ -2,7 +2,7 @@
   "name": "homebridge-hydrawise",
   "version": "1.0.0",
   "description": "A homebridge plugin that creates sprinkler accessories for all your Hydrawise zones",
-  "main": "dist/dynamic-platform.js",
+  "main": "dist/index.js",
   "scripts": {
     "clean": "rimraf ./dist",
     "build": "rimraf ./dist && tsc",
@@ -14,6 +14,10 @@
   "engines": {
     "homebridge": ">=1.0.0"
   },
+  "keywords": [
+    "homebridge-plugin",
+    "hydrawise"
+  ],
   "license": "ISC",
   "files": [
     "LICENSE",
