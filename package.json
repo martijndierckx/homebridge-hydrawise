@@ -1,28 +1,40 @@
 {
   "name": "homebridge-hydrawise",
-  "version": "0.0.5",
+  "version": "1.0.0",
   "description": "A homebridge plugin that creates sprinkler accessories for all your Hydrawise zones",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
+    "clean": "rimraf ./dist",
+    "build": "rimraf ./dist && tsc",
+    "prepublishOnly": "npm run build",
+    "postpublish": "npm run clean",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "author": "Martijn Dierckx",
   "engines": {
-    "node": ">=0.12.0",
-    "homebridge": ">=0.2.5"
+    "homebridge": ">=1.0.0"
   },
   "keywords": [
     "homebridge-plugin",
     "hydrawise"
   ],
-  "preferGlobal": true,
-  "author": "Martijn Dierckx",
   "license": "ISC",
-  "dependencies": {
-    "hydrawise-api": "https://github.com/jerrykeys/hydrawise-api.git",
-    "promise": "^7.0.4"
-  },
+  "files": [
+    "LICENSE",
+    "dist"
+  ],
   "repository": {
     "type": "git",
     "url": "git://github.com/martijndierckx/homebridge-hydrawise.git"
-  }
+  },
+  "devDependencies": {
+    "@types/node": "10.17.19",
+    "typescript": "^3.8.3",
+    "rimraf": "^3.0.2",
+    "homebridge": "^1.0.4"
+  },
+  "dependencies": {
+    "hydrawise-api": ">1.0.0"
+  },
+  "preferGlobal": true
 }
