@@ -69,6 +69,12 @@ class HydrawiseSprinkler {
                 });
             }
         });
+        // On: Set duration (Since there is no way to push the default run time to Hydrawise, this remains unimplemented)
+        /*service.getCharacteristic(that.platform.api.hap.Characteristic.SetDuration)
+        .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            that.platform.log.info('Set Duration for '+ zone.name + ' to ' + value);
+            callback();
+        });*/
     }
     update(zone) {
         let service = this.accessory.getService(this.platform.api.hap.Service.Valve);
