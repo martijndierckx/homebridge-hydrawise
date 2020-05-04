@@ -43,6 +43,9 @@ class HydrawisePlatform {
         });
     }
     getZones(that) {
+        // List current sprinklers to be matched with Hydrawise zones
+        let toCheckSprinklers = [...this.sprinklers];
+        // Get zones from Hydrawise
         that.hydrawise.getZones().then((zones) => {
             // Go over each configured zone in Hydrawise
             zones.map((zone) => {
@@ -54,6 +57,8 @@ class HydrawisePlatform {
                     that.log.debug('Received zone for existing sprinkler: ' + zone.name);
                     // Update zone values & push to homebridge
                     existingSprinkler.update(zone);
+                    // Remove from to-check list
+                    toCheckSprinklers = toCheckSprinklers.filter((item) => item.zone.relayID !== zone.relayID);
                 }
                 // Sprinker does not exist yet
                 else {
@@ -64,11 +69,16 @@ class HydrawisePlatform {
                     that.sprinklers.push(newSprinkler);
                 }
             });
-            // See if any zones have been removed
-            /*
-             this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, this.accessories);
-             this.accessories.splice(0, this.accessories.length);
-            */
+            // See if any zones have been removed from Hydrawise
+            toCheckSprinklers.map(sprinkler => {
+                // Log
+                that.log.info("Removing Sprinkler for deleted Hydrawise zone: %s", sprinkler.zone.name);
+                console.log('sprinklers array length ' + that.sprinklers.length);
+                // Remove sprinkler
+                sprinkler.unregister();
+                that.sprinklers = that.sprinklers.filter((item) => item !== sprinkler);
+                console.log('sprinklers array length ' + that.sprinklers.length);
+            });
         })
             .catch(error => that.log.error(error));
     }

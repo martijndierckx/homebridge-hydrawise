@@ -15,7 +15,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   private hydrawise: Hydrawise;
   private pollingInterval: number;
 
-  public readonly accessories: PlatformAccessory[] = [];
+  public accessories: PlatformAccessory[] = [];
   private sprinklers:HydrawiseSprinkler[] = [];
 
   constructor(log: Logger, config: PlatformConfig, api: API) {
@@ -56,6 +56,10 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   }
 
   getZones(that: HydrawisePlatform): void {
+    // List current sprinklers to be matched with Hydrawise zones
+    let toCheckSprinklers: HydrawiseSprinkler[] = [...this.sprinklers];
+
+    // Get zones from Hydrawise
     that.hydrawise.getZones().then((zones: HydrawiseZone[]) => {
       
       // Go over each configured zone in Hydrawise
@@ -72,6 +76,9 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
           
           // Update zone values & push to homebridge
           existingSprinkler.update(zone);
+
+          // Remove from to-check list
+          toCheckSprinklers = toCheckSprinklers.filter((item: HydrawiseSprinkler) => item.zone.relayID !== zone.relayID);
         }
         // Sprinker does not exist yet
         else {
@@ -85,13 +92,17 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
         }
       });
 
-      // See if any zones have been removed
+      // See if any zones have been removed from Hydrawise
+      toCheckSprinklers.map(sprinkler => {
 
-      /*
-       this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, this.accessories);
-       this.accessories.splice(0, this.accessories.length);
-      */
+        // Log
+        that.log.info("Removing Sprinkler for deleted Hydrawise zone: %s", sprinkler.zone.name);
 
+        // Remove sprinkler
+        sprinkler.unregister();
+        that.sprinklers = that.sprinklers.filter((item: HydrawiseSprinkler) => item !== sprinkler);
+      });
+      
     })
     .catch(error => that.log.error(error));
   }

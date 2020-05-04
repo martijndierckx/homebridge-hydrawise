@@ -96,6 +96,16 @@ class HydrawiseSprinkler {
             this.zone.remainingRunningTime = zone.remainingRunningTime;
         }
     }
+    unregister() {
+        let that = this;
+        // Log
+        that.platform.log.info("Unregistering sprinkler accessory for deleted Hydrawise zone: %s", that.zone.name);
+        // Remove
+        that.platform.api.unregisterPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [that.accessory]);
+        console.log('acc array length' + that.platform.accessories.length);
+        that.platform.accessories = that.platform.accessories.filter((item) => item !== that.accessory);
+        console.log('acc array length' + that.platform.accessories.length);
+    }
 }
 exports.HydrawiseSprinkler = HydrawiseSprinkler;
 //# sourceMappingURL=HydrawiseSprinkler.js.map

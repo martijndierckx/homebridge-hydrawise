@@ -128,4 +128,15 @@ export class HydrawiseSprinkler {
             this.zone.remainingRunningTime = zone.remainingRunningTime;
         }
     }
+
+    unregister(): void {
+        let that = this;
+        
+        // Log
+        that.platform.log.info("Unregistering sprinkler accessory for deleted Hydrawise zone: %s", that.zone.name);
+
+        // Remove
+        that.platform.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [that.accessory]);
+        that.platform.accessories = that.platform.accessories.filter((item: PlatformAccessory) => item !== that.accessory);
+    }
 }
