@@ -1,6 +1,6 @@
 {
   "name": "homebridge-hydrawise",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A homebridge plugin that creates sprinkler accessories for all your Hydrawise zones",
   "main": "dist/index.js",
   "scripts": {
