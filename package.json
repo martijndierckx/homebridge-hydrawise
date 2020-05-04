@@ -20,8 +20,8 @@
   ],
   "license": "ISC",
   "files": [
-    "LICENSE",
-    "dist"
+    "dist",
+    "config.schema.json"
   ],
   "repository": {
     "type": "git",
