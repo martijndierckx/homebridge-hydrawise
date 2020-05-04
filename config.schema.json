@@ -1,0 +1,110 @@
+{
+    "pluginAlias":"HydrawisePlatform",
+    "pluginType":"platform",
+    "singular":false,
+    "schema":{
+       "type":"object",
+       "properties":{
+          "name":{
+             "title":"Name",
+             "type":"string",
+             "default":"Hydrawise",
+             "required":true
+          },
+          "type":{
+             "title":"Connection Type",
+             "type":"string",
+             "default":"LOCAL",
+             "oneOf":[
+                {
+                   "title":"Local",
+                   "enum":[
+                      "LOCAL"
+                   ]
+                },
+                {
+                   "title":"Cloud",
+                   "enum":[
+                      "CLOUD"
+                   ]
+                }
+             ],
+             "description":"Use a local connection where possible. This type of connection suffers no delays and has no rate limit. The cloud connection will only allow 30 requests every 5 min.",
+             "required":true
+          },
+          "api_key":{
+             "title":"Hydrawise Cloud API key",
+             "type":"string",
+             "description":"You can obtain your API key from the 'Account Details' screen on the <a target=\"_blank\" href=\"https://app.hydrawise.com/config/account/details\">Hydrawise platform</a>"
+          },
+          "host":{
+             "title":"Hostname or IP address",
+             "type":"string"
+          },
+          "user":{
+             "title":"Username",
+             "type":"string",
+             "default":"admin",
+             "description":"The username of your local controller. Should not be configured unless for specific setups. Defaults to 'admin'"
+          },
+          "password":{
+             "title":"Password",
+             "type":"string"
+          },
+          "polling_interval":{
+             "title":"Polling interval",
+             "type":"number",
+             "description":"The amount of ms between each poll to the local controller (default: 1000) or the Hydrawise cloud (default: 10000)",
+             "minimum":200
+          }
+       }
+    },
+    "form":[
+       "name",
+       {
+          "key":"type",
+          "type":"radiobuttons"
+       },
+       {
+          "ref_name":"Local configuration",
+          "type":"fieldset",
+          "items":[
+             "host",
+             "password"
+          ],
+          "condition":{
+             "functionBody":"return model.type == 'LOCAL'"
+          }
+       },
+       {
+          "ref_name":"Cloud configuration",
+          "type":"fieldset",
+          "items":[
+             "api_key"
+          ],
+          "condition":{
+             "functionBody":"return model.type == 'CLOUD'"
+          }
+       },
+       {
+          "type":"fieldset",
+          "expandable":true,
+          "title":"Advanced Settings",
+          "description":"Don't change these, unless you understand what you're doing.",
+          "items":[
+             {
+                "key":"user",
+                "condition":{
+                   "functionBody":"return model.type == 'LOCAL'"
+                }
+             },
+             {
+                "key":"polling_interval",
+                "validationMessage":{
+                   "101":"Should at least be 200 ms"
+                }
+             }
+          ]
+       }
+    ]
+ }
