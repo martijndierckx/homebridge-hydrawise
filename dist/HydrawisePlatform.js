@@ -73,11 +73,9 @@ class HydrawisePlatform {
             toCheckSprinklers.map(sprinkler => {
                 // Log
                 that.log.info("Removing Sprinkler for deleted Hydrawise zone: %s", sprinkler.zone.name);
-                console.log('sprinklers array length ' + that.sprinklers.length);
                 // Remove sprinkler
                 sprinkler.unregister();
                 that.sprinklers = that.sprinklers.filter((item) => item !== sprinkler);
-                console.log('sprinklers array length ' + that.sprinklers.length);
             });
         })
             .catch(error => that.log.error(error));
