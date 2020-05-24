@@ -9,5 +9,5 @@ exports.DEFAULT_POLLING_INTERVAL_LOCAL = 1000;
 /**
  * This default polling interval is used for local connections if no override is provided in the config
  */
-exports.DEFAULT_POLLING_INTERVAL_CLOUD = 10000;
+exports.DEFAULT_POLLING_INTERVAL_CLOUD = 12000;
 //# sourceMappingURL=settings.js.map

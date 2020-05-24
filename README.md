@@ -37,4 +37,5 @@ Fields:
 * **host**: The hostname or ip address of your local controller. (required for LOCAL)
 * **user**: The username of your local controller. Should not be configured unless for specific setups. Defaults to 'admin'.
 * **password**: The password of your local controller. Can be found in the settings of your controller. (required for LOCAL)
-* **polling_interval**: Polling interval in miliseconds. Should only be configured if you run into frequent 429 errors on the CLOUD connection. Defaults to 1000ms for local connections and 10000ms for cloud connections.
+* **polling_interval**: Polling interval in miliseconds. Should only be configured if you run into frequent 429 errors on the CLOUD connection. Defaults to 1000ms for local connections and 12000ms for cloud connections.
+  The default setting allows for 5 start/stop actions every 5 minutes on the cloud connection. If you require more, set the polling interval to 15000ms.

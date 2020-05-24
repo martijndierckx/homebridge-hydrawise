@@ -54,7 +54,7 @@
           "polling_interval":{
              "title":"Polling interval",
              "type":"number",
-             "description":"The amount of ms between each poll to the local controller (default: 1000) or the Hydrawise cloud (default: 10000)",
+             "description":"The amount of ms between each poll to the local controller (default: 1000) or the Hydrawise cloud (default: 12000)",
              "minimum":200
           }
        }
