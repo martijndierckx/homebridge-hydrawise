@@ -5,7 +5,7 @@
 import { APIEvent } from 'homebridge';
 import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULT_POLLING_INTERVAL_CLOUD, DEFAULT_POLLING_INTERVAL_LOCAL } from './settings';
-import { Hydrawise, HydrawiseConnectionType, HydrawiseZone } from 'hydrawise-api';
+import { Hydrawise, HydrawiseConnectionType, HydrawiseZone, HydrawiseController } from 'hydrawise-api';
 import { HydrawiseSprinkler } from './HydrawiseSprinkler';
 import { setInterval } from "timers";
 
@@ -13,7 +13,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   public readonly log: Logger;
   public readonly api: API;
   private hydrawise: Hydrawise;
-  private pollingInterval: number;
+  private pollingInterval: number = 0;
 
   public accessories: PlatformAccessory[] = [];
   private sprinklers:HydrawiseSprinkler[] = [];
@@ -31,36 +31,60 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       key: config.api_key
     });
 
-    // Set polling interval
-    if(config.polling_interval !== undefined && typeof config.polling_interval == 'number') {
-      this.pollingInterval = config.polling_interval;
-    }
-    else {
-      if(this.hydrawise.type == HydrawiseConnectionType.LOCAL) {
-        this.pollingInterval = DEFAULT_POLLING_INTERVAL_LOCAL;
-      }
-      else {
-        this.pollingInterval = DEFAULT_POLLING_INTERVAL_CLOUD;
-      }
-    }
-
     // On: Finished loading Homebridge Plugin
     let that: HydrawisePlatform = this;
     api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
 
-      // Continious updates of the zones
-      setInterval(() => {
-        that.getZones(that);
-      }, that.pollingInterval);
+      // One time retrieval of the controllers (reboot Homebridge manually if a new controller is added/removed)
+      that.hydrawise.getControllers().then((controllers: HydrawiseController[]) => {
+        
+        // Only continue if at least 1 controller was detected
+        if(controllers.length > 0) {
+
+          // Set polling interval
+          if(config.polling_interval !== undefined && typeof config.polling_interval == 'number') {
+            that.pollingInterval = config.polling_interval;
+          }
+          else {
+            if(this.hydrawise.type == HydrawiseConnectionType.LOCAL) {
+              that.pollingInterval = DEFAULT_POLLING_INTERVAL_LOCAL;
+            }
+            else {
+              // The default polling interval is a good default for a single controller setup. If there are more we'll have to spread the calls.
+              that.pollingInterval = DEFAULT_POLLING_INTERVAL_CLOUD * controllers.length;
+            }
+          }
+
+          // For each Controller
+          controllers.map((controller: HydrawiseController) => {
+
+            that.log.debug('Retrieved a Hydrawise controller: '+ controller.name);
+
+            // Continious updates of the zones
+            setInterval(() => {
+              that.getZones(controller);
+            }, that.pollingInterval);
+
+          });
+        }
+        else {
+          that.log.error('Did not get any controllers');
+        }
+      }).catch((error: any) => that.log.error(error));
     });
   }
 
-  getZones(that: HydrawisePlatform): void {
+  getZones(controller: HydrawiseController): void {
+    let that = this;
+
     // List current sprinklers to be matched with Hydrawise zones
     let toCheckSprinklers: HydrawiseSprinkler[] = [...this.sprinklers];
 
+    // Only math sprinklers from the current controller
+    toCheckSprinklers = toCheckSprinklers.filter((item: HydrawiseSprinkler) => item.zone.controller.id == controller.id);
+
     // Get zones from Hydrawise
-    that.hydrawise.getZones().then((zones: HydrawiseZone[]) => {
+    controller.getZones().then((zones: HydrawiseZone[]) => {
       
       // Go over each configured zone in Hydrawise
       zones.map((zone: HydrawiseZone) => {

@@ -4,11 +4,12 @@
   
   Cloud connection:
   - Get Zones           -   node ./troubleshooting/hydrawise-api.js getZones YOUR_API_KEY
-  - Get raw Schedule    -   node ./troubleshooting/hydrawise-api.js getSchedule YOUR_API_KEY
+  - Get Raw Schedule    -   node ./troubleshooting/hydrawise-api.js getSchedule YOUR_API_KEY
+  - Get Controllers     -   node ./troubleshooting/hydrawise-api.js getControllers YOUR_API_KEY
 
   Local connection:
   - Get Zones           -   node ./troubleshooting/hydrawise-api.js getZones IP_ADDRESS CONTROLLER_PASSWORD
-  - Get raw Schedule    -   node ./troubleshooting/hydrawise-api.js getSchedule IP_ADDRESS CONTROLLER_PASSWORD
+  - Get Raw Schedule    -   node ./troubleshooting/hydrawise-api.js getSchedule IP_ADDRESS CONTROLLER_PASSWORD
 
 */
 
@@ -30,5 +31,8 @@ switch(process.argv[2].toLowerCase()) {
     break;
   case 'getschedule':
     hydrawise.getStatusAndSchedule().then(data => console.log(data)).catch(err => console.log(err));
+    break;
+  case 'getcontrollers':
+    hydrawise.getControllers().then(data => console.log(data)).catch(err => console.log(err));
     break;
 }

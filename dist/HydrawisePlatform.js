@@ -9,6 +9,7 @@ const HydrawiseSprinkler_1 = require("./HydrawiseSprinkler");
 const timers_1 = require("timers");
 class HydrawisePlatform {
     constructor(log, config, api) {
+        this.pollingInterval = 0;
         this.accessories = [];
         this.sprinklers = [];
         this.log = log;
@@ -21,32 +22,49 @@ class HydrawisePlatform {
             password: config.password,
             key: config.api_key
         });
-        // Set polling interval
-        if (config.polling_interval !== undefined && typeof config.polling_interval == 'number') {
-            this.pollingInterval = config.polling_interval;
-        }
-        else {
-            if (this.hydrawise.type == hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
-                this.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_LOCAL;
-            }
-            else {
-                this.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_CLOUD;
-            }
-        }
         // On: Finished loading Homebridge Plugin
         let that = this;
         api.on("didFinishLaunching" /* DID_FINISH_LAUNCHING */, () => {
-            // Continious updates of the zones
-            timers_1.setInterval(() => {
-                that.getZones(that);
-            }, that.pollingInterval);
+            // One time retrieval of the controllers (reboot Homebridge manually if a new controller is added/removed)
+            that.hydrawise.getControllers().then((controllers) => {
+                // Only continue if at least 1 controller was detected
+                if (controllers.length > 0) {
+                    // Set polling interval
+                    if (config.polling_interval !== undefined && typeof config.polling_interval == 'number') {
+                        that.pollingInterval = config.polling_interval;
+                    }
+                    else {
+                        if (this.hydrawise.type == hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
+                            that.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_LOCAL;
+                        }
+                        else {
+                            // The default polling interval is a good default for a single controller setup. If there are more we'll have to spread the calls.
+                            that.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_CLOUD * controllers.length;
+                        }
+                    }
+                    // For each Controller
+                    controllers.map((controller) => {
+                        that.log.debug('Retrieved a Hydrawise controller: ' + controller.name);
+                        // Continious updates of the zones
+                        timers_1.setInterval(() => {
+                            that.getZones(controller);
+                        }, that.pollingInterval);
+                    });
+                }
+                else {
+                    that.log.error('Did not get any controllers');
+                }
+            }).catch((error) => that.log.error(error));
         });
     }
-    getZones(that) {
+    getZones(controller) {
+        let that = this;
         // List current sprinklers to be matched with Hydrawise zones
         let toCheckSprinklers = [...this.sprinklers];
+        // Only math sprinklers from the current controller
+        toCheckSprinklers = toCheckSprinklers.filter((item) => item.zone.controller.id == controller.id);
         // Get zones from Hydrawise
-        that.hydrawise.getZones().then((zones) => {
+        controller.getZones().then((zones) => {
             // Go over each configured zone in Hydrawise
             zones.map((zone) => {
                 // Find an existing sprinkler matching the zone
