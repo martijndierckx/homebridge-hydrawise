@@ -1,5 +1,6 @@
 /**
  * @author Martijn Dierckx
+ * @todo Check after first getZones from all controllers wether there are any stale 'accessories' registered from cache which aren't linked to a zone
  */
 
 import { APIEvent } from 'homebridge';
@@ -16,7 +17,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   private pollingInterval: number = 0;
 
   public accessories: PlatformAccessory[] = [];
-  private sprinklers:HydrawiseSprinkler[] = [];
+  private sprinklers: HydrawiseSprinkler[] = [];
 
   constructor(log: Logger, config: PlatformConfig, api: API) {
     this.log = log;
@@ -60,11 +61,13 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
 
             that.log.debug('Retrieved a Hydrawise controller: '+ controller.name);
 
+            // Initiate the first poll
+            that.getZones(controller);
+
             // Continious updates of the zones
             setInterval(() => {
               that.getZones(controller);
             }, that.pollingInterval);
-
           });
         }
         else {
