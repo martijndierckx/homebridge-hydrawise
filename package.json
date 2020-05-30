@@ -35,7 +35,7 @@
     "homebridge": "^1.0.4"
   },
   "dependencies": {
-    "hydrawise-api": ">=1.0.1"
+    "hydrawise-api": ">=1.1.0"
   },
   "preferGlobal": true
 }
