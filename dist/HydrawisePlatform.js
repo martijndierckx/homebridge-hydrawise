@@ -1,6 +1,7 @@
 "use strict";
 /**
  * @author Martijn Dierckx
+ * @todo Check after first getZones from all controllers wether there are any stale 'accessories' registered from cache which aren't linked to a zone
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 const settings_1 = require("./settings");
@@ -45,6 +46,8 @@ class HydrawisePlatform {
                     // For each Controller
                     controllers.map((controller) => {
                         that.log.debug('Retrieved a Hydrawise controller: ' + controller.name);
+                        // Initiate the first poll
+                        that.getZones(controller);
                         // Continious updates of the zones
                         timers_1.setInterval(() => {
                             that.getZones(controller);
