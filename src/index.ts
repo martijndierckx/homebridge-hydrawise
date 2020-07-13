@@ -7,5 +7,5 @@ import { HydrawisePlatform } from './HydrawisePlatform';
  * This method registers the platform with Homebridge
  */
 export = (api: API) => {
-  api.registerPlatform(PLATFORM_NAME, HydrawisePlatform);
+  api.registerPlatform("homebridge-hydrawise", PLATFORM_NAME, HydrawisePlatform);
 }
