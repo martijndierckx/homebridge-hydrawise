@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_POLLING_INTERVAL_CLOUD = exports.DEFAULT_POLLING_INTERVAL_LOCAL = exports.PLUGIN_NAME = exports.PLATFORM_NAME = void 0;
 exports.PLATFORM_NAME = 'HydrawisePlatform';
 exports.PLUGIN_NAME = 'homebridge-hydrawise';
 /**
