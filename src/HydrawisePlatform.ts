@@ -14,7 +14,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   public readonly log: Logger;
   public readonly api: API;
   private hydrawise: Hydrawise;
-  private pollingInterval: number = 0;
+  private pollingInterval = 0;
   public readonly overrideRunningTime: number | undefined = undefined;
 
   public accessories: PlatformAccessory[] = [];
@@ -39,56 +39,53 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     }
 
     // On: Finished loading Homebridge Plugin
-    let that: HydrawisePlatform = this;
     api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
       // One time retrieval of the controllers (reboot Homebridge manually if a new controller is added/removed)
-      that.hydrawise
+      this.hydrawise
         .getControllers()
         .then((controllers: HydrawiseController[]) => {
           // Only continue if at least 1 controller was detected
           if (controllers.length > 0) {
             // Log run time override
             if (config.running_time !== undefined && typeof config.running_time == 'number') {
-              this.log.debug(`[CONFIG] Overriding the run time for each zone when running: ${that.overrideRunningTime} seconds`);
+              this.log.debug(`[CONFIG] Overriding the run time for each zone when running: ${this.overrideRunningTime} seconds`);
             }
 
             // Set polling interval
             if (config.polling_interval !== undefined && typeof config.polling_interval == 'number') {
-              that.pollingInterval = config.polling_interval;
+              this.pollingInterval = config.polling_interval;
             } else {
               if (this.hydrawise.type == HydrawiseConnectionType.LOCAL) {
-                that.pollingInterval = DEFAULT_POLLING_INTERVAL_LOCAL;
+                this.pollingInterval = DEFAULT_POLLING_INTERVAL_LOCAL;
               } else {
                 // The default polling interval is a good default for a single controller setup. If there are more we'll have to spread the calls.
-                that.pollingInterval = DEFAULT_POLLING_INTERVAL_CLOUD * controllers.length;
+                this.pollingInterval = DEFAULT_POLLING_INTERVAL_CLOUD * controllers.length;
               }
             }
 
-            this.log.debug(`[CONFIG] Polling interval: ${that.pollingInterval} miliseconds`);
+            this.log.debug(`[CONFIG] Polling interval: ${this.pollingInterval} miliseconds`);
 
             // For each Controller
             controllers.map((controller: HydrawiseController) => {
-              that.log.debug(`Retrieved a Hydrawise controller: ${controller.name}`);
+              this.log.debug(`Retrieved a Hydrawise controller: ${controller.name}`);
 
               // Initiate the first poll
-              that.getZones(controller);
+              this.getZones(controller);
 
               // Continious updates of the zones
               setInterval(() => {
-                that.getZones(controller);
-              }, that.pollingInterval);
+                this.getZones(controller);
+              }, this.pollingInterval);
             });
           } else {
-            that.log.error(`Did not receive any controllers`);
+            this.log.error(`Did not receive any controllers`);
           }
         })
-        .catch((error: any) => that.log.error(error));
+        .catch((error) => this.log.error(error));
     });
   }
 
   getZones(controller: HydrawiseController): void {
-    let that = this;
-
     // List current sprinklers to be matched with Hydrawise zones
     let toCheckSprinklers: HydrawiseSprinkler[] = [...this.sprinklers];
 
@@ -102,12 +99,12 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
         // Go over each configured zone in Hydrawise
         zones.map((zone: HydrawiseZone) => {
           // Find an existing sprinkler matching the zone
-          let existingSprinkler = that.sprinklers.find((x) => x.zone.relayID == zone.relayID);
+          const existingSprinkler = this.sprinklers.find((x) => x.zone.relayID == zone.relayID);
 
           // Sprinkler already exists
           if (existingSprinkler !== undefined) {
             // Log
-            that.log.debug(`Received zone data for existing sprinkler: ${zone.name}`);
+            this.log.debug(`Received zone data for existing sprinkler: ${zone.name}`);
 
             // Update zone values & push to homebridge
             existingSprinkler.update(zone);
@@ -118,25 +115,25 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
           // Sprinker does not exist yet
           else {
             // Log
-            that.log.debug(`Received zone data for new/cached sprinkler: ${zone.name}`);
+            this.log.debug(`Received zone data for new/cached sprinkler: ${zone.name}`);
 
             // Create new sprinkler
-            let newSprinkler = new HydrawiseSprinkler(zone, that);
-            that.sprinklers.push(newSprinkler);
+            const newSprinkler = new HydrawiseSprinkler(zone, this);
+            this.sprinklers.push(newSprinkler);
           }
         });
 
         // See if any zones have been removed from Hydrawise
         toCheckSprinklers.map((sprinkler) => {
           // Log
-          that.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
+          this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
 
           // Remove sprinkler
           sprinkler.unregister();
-          that.sprinklers = that.sprinklers.filter((item: HydrawiseSprinkler) => item !== sprinkler);
+          this.sprinklers = this.sprinklers.filter((item: HydrawiseSprinkler) => item !== sprinkler);
         });
       })
-      .catch((error) => that.log.error(error));
+      .catch((error) => this.log.error(error));
   }
 
   /*

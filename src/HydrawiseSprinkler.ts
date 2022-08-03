@@ -45,7 +45,7 @@ export class HydrawiseSprinkler {
     };
 
     // Already excisting accessory from cache?
-    let existingAccessory = this.platform.accessories.find((accessory) => accessory.UUID === this.uuid);
+    const existingAccessory = this.platform.accessories.find((accessory) => accessory.UUID === this.uuid);
     if (existingAccessory !== undefined) {
       // Get Valve service for existing accessory
       const s = existingAccessory.getService(this.platform.api.hap.Service.Valve);
@@ -86,7 +86,7 @@ export class HydrawiseSprinkler {
         if (value == 1) {
           this.zone
             .run(this.platform.overrideRunningTime)
-            .then((data) => {
+            .then(() => {
               this.platform.log.info(`'${this.zone.name}' sprinkler turned on`);
               callback();
             })
@@ -99,7 +99,7 @@ export class HydrawiseSprinkler {
         else {
           this.zone
             .stop()
-            .then((data) => {
+            .then(() => {
               this.platform.log.info(`'${this.zone.name}' sprinkler turned off`);
               callback();
             })
