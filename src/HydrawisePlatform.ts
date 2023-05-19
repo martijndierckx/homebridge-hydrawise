@@ -81,7 +81,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
             this.log.error(`Did not receive any controllers`);
           }
         })
-        .catch((error) => this.log.error(error));
+        .catch((error: any) => this.log.error(error));
     });
   }
 
@@ -133,7 +133,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
           this.sprinklers = this.sprinklers.filter((item: HydrawiseSprinkler) => item !== sprinkler);
         });
       })
-      .catch((error) => this.log.error(error));
+      .catch((error: any) => this.log.error(error));
   }
 
   /*

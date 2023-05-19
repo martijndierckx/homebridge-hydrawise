@@ -90,7 +90,7 @@ export class HydrawiseSprinkler {
               this.platform.log.info(`'${this.zone.name}' sprinkler turned on`);
               callback();
             })
-            .catch((error) => {
+            .catch((error: any) => {
               this.platform.log.error(error);
               callback();
             });
@@ -103,7 +103,7 @@ export class HydrawiseSprinkler {
               this.platform.log.info(`'${this.zone.name}' sprinkler turned off`);
               callback();
             })
-            .catch((error) => {
+            .catch((error: any) => {
               this.platform.log.error(error);
               callback();
             });
