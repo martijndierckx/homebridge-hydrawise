@@ -88,17 +88,17 @@ describe('HydrawisePlatform smoke (characterization)', () => {
     expect(api.registered).toHaveLength(0);
   });
 
-  it('BUG (v1): LOCAL relayID change across controller reboot causes accessory duplication', async () => {
-    // Demonstrates the "General room" bug. After Phase J this test's assertion flips.
+  it('FIX (v2): LOCAL relayID change across controller reboot reuses cached accessory (the bug fix)', async () => {
+    // The "General room" bug regression test. Before Phase J this was the buggy v1 behavior.
     const api = createMockApi();
     const log = new MockLogger();
 
-    // Cached accessory from a previous boot when relayID was 1001
+    // Cached accessory from a previous boot when relayID was 1001 (v1 UUID formula).
     const oldUUID = api.hap.uuid.generate('1001');
     const cached = new MockPlatformAccessory('Front Lawn', oldUUID);
     cached.addService(api.hap.Service.Valve, 'Sprinkler');
 
-    // After controller reboot, relayID is now 5555 for the SAME physical zone (zone=1)
+    // After controller reboot, relayID is now 5555 for the SAME physical zone (zone=1).
     const c = new MockHydrawiseController(undefined, 'http://h/', 'h');
     c.pushZones([new MockHydrawiseZone(5555, 1, 'Front Lawn')]);
     controllerHolder.controllers = [c];
@@ -115,10 +115,13 @@ describe('HydrawisePlatform smoke (characterization)', () => {
     await tick();
     await tick();
 
-    // v1 behavior (the BUG): new accessory registered because UUID(5555) !== UUID(1001).
-    // Old cached accessory remains in api.accessories with no matching zone.
-    // After Phase J: assertion flips — registered should be empty because stable key matches.
-    expect(api.registered).toHaveLength(1);
-    expect(api.registered[0].UUID).not.toBe(oldUUID);
+    // Bug fix: NO new accessory registered. The cached accessory is adopted via the tertiary
+    // (display name + LOCAL controllerKey) match, even though its UUID was derived from the
+    // stale relayID.
+    expect(api.registered).toHaveLength(0);
+    // The cached accessory got its v2 context stamped via api.updatePlatformAccessories.
+    expect(api.updated).toContain(cached);
+    expect((cached.context as any).schemaVersion).toBe(2);
+    expect((cached.context as any).stableKey).toBe('local:h:1');
   });
 });

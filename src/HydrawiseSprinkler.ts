@@ -1,47 +1,71 @@
 import { PlatformAccessoryEvent } from 'homebridge';
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import type { HydrawiseZone } from 'hydrawise-api';
+import { ACCESSORY_CONTEXT_SCHEMA_VERSION, PLATFORM_NAME, PLUGIN_NAME } from './settings';
+import type { HydrawiseConnectionType, HydrawiseZone } from 'hydrawise-api';
 import type { HydrawisePlatform } from './HydrawisePlatform';
+import type { HydrawiseAccessoryContext } from './types';
+
+export interface HydrawiseSprinklerOptions {
+  stableKey: string;
+  controllerKey: string;
+  connectionType: HydrawiseConnectionType;
+  /** A cached accessory matched via the three-step lookup. v1 legacy accessories keep their original UUID. */
+  cachedAccessory?: PlatformAccessory<Partial<HydrawiseAccessoryContext>>;
+}
 
 /** Wraps a single Hydrawise zone as a HomeKit Valve accessory. */
 export class HydrawiseSprinkler {
-  private accessory!: PlatformAccessory;
+  private accessory!: PlatformAccessory<Partial<HydrawiseAccessoryContext>>;
   private service!: Service;
-  private uuid: string;
+  public readonly uuid: string;
+  public readonly stableKey: string;
+  public readonly controllerKey: string;
+  public readonly connectionType: HydrawiseConnectionType;
   public zone: HydrawiseZone;
   public platform: HydrawisePlatform;
 
-  constructor(zone: HydrawiseZone, platform: HydrawisePlatform) {
+  constructor(zone: HydrawiseZone, platform: HydrawisePlatform, opts: HydrawiseSprinklerOptions) {
     this.zone = zone;
     this.platform = platform;
-    this.uuid = platform.api.hap.uuid.generate(zone.relayID.toString());
+    this.stableKey = opts.stableKey;
+    this.controllerKey = opts.controllerKey;
+    this.connectionType = opts.connectionType;
+
+    const newUUID = platform.api.hap.uuid.generate(this.stableKey);
 
     const createAccessory = () => {
       this.platform.log.info(`Configuring new sprinkler: ${this.zone.name}`);
-      this.accessory = new this.platform.api.platformAccessory(this.zone.name, this.uuid);
+      this.accessory = new this.platform.api.platformAccessory(this.zone.name, newUUID);
       this.platform.accessories.push(this.accessory);
       this.platform.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [this.accessory]);
       this.service = this.accessory.addService(this.platform.api.hap.Service.Valve, 'Sprinkler');
       this.service.setCharacteristic(this.platform.api.hap.Characteristic.ValveType, '1');
+      this.stampContext();
     };
 
-    const existingAccessory = this.platform.accessories.find((a) => a.UUID === this.uuid);
-    if (existingAccessory !== undefined) {
-      const s = existingAccessory.getService(this.platform.api.hap.Service.Valve);
+    if (opts.cachedAccessory !== undefined) {
+      const cached = opts.cachedAccessory;
+      const s = cached.getService(this.platform.api.hap.Service.Valve);
       if (s !== undefined) {
-        this.accessory = existingAccessory;
+        // Adopt cached accessory. v2 keeps its UUID; legacy v1 also keeps its UUID — context.stableKey is
+        // what subsequent polls match on, so the original UUID (and therefore the user's room assignment)
+        // is preserved.
+        this.accessory = cached;
         this.service = s;
+        // Stamp/refresh v2 context.
+        this.stampContext();
+        this.platform.api.updatePlatformAccessories([this.accessory]);
       } else {
-        this.platform.log.warn(
-          `Cached accessory for '${this.zone.name}' has no matching Valve service. Removing and re-creating.`
-        );
-        this.unregisterAccessory(existingAccessory);
+        // v1.2.0 "corrupt accessory" recovery path — no Valve service: unregister & recreate fresh.
+        this.platform.log.warn(`Cached accessory '${this.zone.name}' has no Valve service. Removing and re-creating.`);
+        this.unregisterAccessory(cached);
         createAccessory();
       }
     } else {
       createAccessory();
     }
+
+    this.uuid = this.accessory.UUID;
 
     // Initial characteristic state
     this.service.updateCharacteristic(this.platform.api.hap.Characteristic.Active, this.zone.isRunning ? 1 : 0);
@@ -69,6 +93,19 @@ export class HydrawiseSprinkler {
         throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
       }
     });
+  }
+
+  private stampContext(): void {
+    const ctx: HydrawiseAccessoryContext = {
+      schemaVersion: ACCESSORY_CONTEXT_SCHEMA_VERSION,
+      connectionType: this.connectionType,
+      controllerKey: this.controllerKey,
+      stableKey: this.stableKey,
+      zoneName: this.zone.name,
+      zoneNumber: this.zone.zone,
+      cloudRelayID: this.zone.relayID
+    };
+    this.accessory.context = ctx;
   }
 
   public update(zone: HydrawiseZone): void {
