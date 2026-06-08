@@ -7,6 +7,11 @@ exports.HydrawiseSprinkler = void 0;
 const settings_1 = require("./settings");
 /** Class representing a Hydrawise zone */
 class HydrawiseSprinkler {
+    accessory;
+    service;
+    uuid;
+    zone;
+    platform;
     /**
      * Create a new instance of a HydrawiseSprinkler
      * @param {HydrawiseZone} zone - The HydrawiseZone lined to the Homebridge/HAP accessory

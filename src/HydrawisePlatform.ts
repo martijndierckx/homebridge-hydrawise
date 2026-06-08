@@ -89,8 +89,8 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     // List current sprinklers to be matched with Hydrawise zones
     let toCheckSprinklers: HydrawiseSprinkler[] = [...this.sprinklers];
 
-    // Only math sprinklers from the current controller
-    toCheckSprinklers = toCheckSprinklers.filter((item: HydrawiseSprinkler) => item.zone.controller.id == controller.id);
+    // Only match sprinklers from the current controller
+    toCheckSprinklers = toCheckSprinklers.filter((item: HydrawiseSprinkler) => item.zone.controller?.id == controller.id);
 
     // Get zones from Hydrawise
     controller

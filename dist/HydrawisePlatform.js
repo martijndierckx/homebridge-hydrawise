@@ -10,11 +10,14 @@ const hydrawise_api_1 = require("hydrawise-api");
 const HydrawiseSprinkler_1 = require("./HydrawiseSprinkler");
 const timers_1 = require("timers");
 class HydrawisePlatform {
+    log;
+    api;
+    hydrawise;
+    pollingInterval = 0;
+    overrideRunningTime = undefined;
+    accessories = [];
+    sprinklers = [];
     constructor(log, config, api) {
-        this.pollingInterval = 0;
-        this.overrideRunningTime = undefined;
-        this.accessories = [];
-        this.sprinklers = [];
         this.log = log;
         this.api = api;
         // Setup Hydrawise connection
@@ -76,8 +79,8 @@ class HydrawisePlatform {
     getZones(controller) {
         // List current sprinklers to be matched with Hydrawise zones
         let toCheckSprinklers = [...this.sprinklers];
-        // Only math sprinklers from the current controller
-        toCheckSprinklers = toCheckSprinklers.filter((item) => item.zone.controller.id == controller.id);
+        // Only match sprinklers from the current controller
+        toCheckSprinklers = toCheckSprinklers.filter((item) => item.zone.controller?.id == controller.id);
         // Get zones from Hydrawise
         controller
             .getZones()
