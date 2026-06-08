@@ -1,6 +1,5 @@
 /**
  * @author Martijn Dierckx
- * @todo Phase K: two-stage stale-cache sweep
  */
 import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 import type { HydrawiseAccessoryContext } from './types';
@@ -16,11 +15,28 @@ export declare class HydrawisePlatform implements DynamicPlatformPlugin {
     private sprinklers;
     private intervals;
     private startTimeouts;
+    private expectedControllerKeys;
+    private firstPollOK;
+    private firstPollZoneCount;
+    private matchedUUIDsByController;
+    private controllerSwept;
+    private globalSwept;
     constructor(log: Logger, config: PlatformConfig, api: API);
     private onLaunch;
     private startPollingFor;
     private onShutdown;
     private pollOnce;
+    /**
+     * Stage 1 sweep — runs once per controller after its first successful poll AND only if that poll
+     * returned ≥1 zone. Removes v2-stamped accessories belonging to this controller that weren't matched.
+     */
+    private maybeSweepController;
+    /**
+     * Stage 2 sweep — runs once globally, after every expected controller has had a first
+     * successful poll AND at least one of them returned ≥1 zone. Removes v1 (un-stamped) accessories
+     * that weren't adopted by any controller.
+     */
+    private maybeSweepGlobalV1;
     /** Reconcile a controller's current zone list with our sprinkler wrappers (stable-key matching). */
     private reconcile;
     /**

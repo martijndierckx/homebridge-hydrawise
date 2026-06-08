@@ -1,11 +1,16 @@
 /**
  * @author Martijn Dierckx
- * @todo Phase K: two-stage stale-cache sweep
  */
 
 import { APIEvent } from 'homebridge';
 import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
-import { DEFAULT_POLLING_INTERVAL_CLOUD, DEFAULT_POLLING_INTERVAL_LOCAL, ACCESSORY_CONTEXT_SCHEMA_VERSION } from './settings';
+import {
+  DEFAULT_POLLING_INTERVAL_CLOUD,
+  DEFAULT_POLLING_INTERVAL_LOCAL,
+  ACCESSORY_CONTEXT_SCHEMA_VERSION,
+  PLUGIN_NAME,
+  PLATFORM_NAME
+} from './settings';
 import { Hydrawise, HydrawiseConnectionType, HydrawiseZone, HydrawiseController } from 'hydrawise-api';
 import { HydrawiseSprinkler } from './HydrawiseSprinkler';
 import { parseConfig, type ParsedHydrawiseConfig } from './HydrawiseConfig';
@@ -26,6 +31,14 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   private sprinklers: HydrawiseSprinkler[] = [];
   private intervals: NodeJS.Timeout[] = [];
   private startTimeouts: NodeJS.Timeout[] = [];
+
+  // Stale-cache sweep state (Phase K)
+  private expectedControllerKeys = new Set<string>();
+  private firstPollOK = new Set<string>();
+  private firstPollZoneCount = new Map<string, number>();
+  private matchedUUIDsByController = new Map<string, Set<string>>();
+  private controllerSwept = new Set<string>();
+  private globalSwept = false;
 
   constructor(log: Logger, config: PlatformConfig, api: API) {
     this.log = log;
@@ -68,6 +81,9 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       }
       this.log.debug(`[CONFIG] Polling interval: ${this.pollingInterval} milliseconds`);
 
+      // Stamp expected controllers up front so the sweep knows the full set even before any poll completes.
+      this.expectedControllerKeys = new Set(controllers.map((c) => computeControllerKey(c, this.hydrawise.type)));
+
       const stagger = Math.floor(this.pollingInterval / controllers.length);
       controllers.forEach((controller, index) => {
         this.log.debug(`Retrieved a Hydrawise controller: ${controller.name}`);
@@ -102,16 +118,82 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   private async pollOnce(controller: HydrawiseController): Promise<void> {
     try {
       const zones = await controller.getZones();
-      this.reconcile(controller, zones);
+      const controllerKey = computeControllerKey(controller, this.hydrawise.type);
+      const isFirstSuccessfulPoll = !this.firstPollOK.has(controllerKey);
+      this.reconcile(controller, controllerKey, zones);
+      if (isFirstSuccessfulPoll) {
+        this.firstPollOK.add(controllerKey);
+        this.firstPollZoneCount.set(controllerKey, zones.length);
+        this.maybeSweepController(controllerKey);
+        this.maybeSweepGlobalV1();
+      }
     } catch (err) {
       this.log.error(`Poll failed for ${controller.name}: ${(err as Error).message}`);
     }
   }
 
+  /**
+   * Stage 1 sweep — runs once per controller after its first successful poll AND only if that poll
+   * returned ≥1 zone. Removes v2-stamped accessories belonging to this controller that weren't matched.
+   */
+  private maybeSweepController(controllerKey: string): void {
+    if (this.controllerSwept.has(controllerKey)) return;
+    if ((this.firstPollZoneCount.get(controllerKey) ?? 0) === 0) return;
+    const matched = this.matchedUUIDsByController.get(controllerKey) ?? new Set();
+    const toSweep = this.accessories.filter(
+      (a) =>
+        a.context?.schemaVersion === ACCESSORY_CONTEXT_SCHEMA_VERSION &&
+        a.context?.controllerKey === controllerKey &&
+        !matched.has(a.UUID)
+    );
+    for (const a of toSweep) {
+      this.log.info(`Stale accessory swept (controller ${controllerKey}): ${a.displayName}`);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [a]);
+      this.accessories = this.accessories.filter((x) => x !== a);
+      this.sprinklers = this.sprinklers.filter((s) => s.uuid !== a.UUID);
+    }
+    this.controllerSwept.add(controllerKey);
+  }
+
+  /**
+   * Stage 2 sweep — runs once globally, after every expected controller has had a first
+   * successful poll AND at least one of them returned ≥1 zone. Removes v1 (un-stamped) accessories
+   * that weren't adopted by any controller.
+   */
+  private maybeSweepGlobalV1(): void {
+    if (this.globalSwept) return;
+    for (const ck of this.expectedControllerKeys) {
+      if (!this.firstPollOK.has(ck)) return;
+    }
+    let anyHasZones = false;
+    for (const n of this.firstPollZoneCount.values()) {
+      if (n > 0) {
+        anyHasZones = true;
+        break;
+      }
+    }
+    if (!anyHasZones) return;
+
+    const matchedAcrossAll = new Set<string>();
+    for (const set of this.matchedUUIDsByController.values()) {
+      for (const uuid of set) matchedAcrossAll.add(uuid);
+    }
+    const toSweep = this.accessories.filter(
+      (a) => a.context?.schemaVersion !== ACCESSORY_CONTEXT_SCHEMA_VERSION && !matchedAcrossAll.has(a.UUID)
+    );
+    for (const a of toSweep) {
+      this.log.info(`Stale v1 accessory swept: ${a.displayName}`);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [a]);
+      this.accessories = this.accessories.filter((x) => x !== a);
+      this.sprinklers = this.sprinklers.filter((s) => s.uuid !== a.UUID);
+    }
+    this.globalSwept = true;
+  }
+
   /** Reconcile a controller's current zone list with our sprinkler wrappers (stable-key matching). */
-  private reconcile(controller: HydrawiseController, zones: HydrawiseZone[]): void {
-    const controllerKey = computeControllerKey(controller, this.hydrawise.type);
+  private reconcile(controller: HydrawiseController, controllerKey: string, zones: HydrawiseZone[]): void {
     let toCheckSprinklers = this.sprinklers.filter((s) => s.controllerKey === controllerKey);
+    const matchedThisPoll = new Set<string>();
 
     for (const zone of zones) {
       const stableKey = computeStableKey(zone, controller, this.hydrawise.type);
@@ -121,6 +203,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
         this.log.debug(`Received zone data for existing sprinkler: ${zone.name}`);
         existingSprinkler.update(zone);
         toCheckSprinklers = toCheckSprinklers.filter((s) => s !== existingSprinkler);
+        matchedThisPoll.add(existingSprinkler.uuid);
         continue;
       }
 
@@ -136,7 +219,10 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
         cachedAccessory: cached
       });
       this.sprinklers.push(newSprinkler);
+      matchedThisPoll.add(newSprinkler.uuid);
     }
+
+    this.matchedUUIDsByController.set(controllerKey, matchedThisPoll);
 
     // Per-poll removal of zones that disappeared mid-life on THIS controller.
     for (const sprinkler of toCheckSprinklers) {
