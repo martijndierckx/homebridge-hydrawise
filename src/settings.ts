@@ -1,12 +1,11 @@
 export const PLATFORM_NAME = 'HydrawisePlatform';
 export const PLUGIN_NAME = 'homebridge-hydrawise';
 
-/**
- * This default polling interval is used for local connections if no override is provided in the config
- */
+/** Default polling interval (ms) for LOCAL connections when not overridden via config. */
 export const DEFAULT_POLLING_INTERVAL_LOCAL = 1000;
 
-/**
- * This default polling interval is used for local connections if no override is provided in the config
- */
+/** Default polling interval (ms) for CLOUD connections (per controller) when not overridden via config. */
 export const DEFAULT_POLLING_INTERVAL_CLOUD = 12000;
+
+/** Schema version stamped on `accessory.context` from v2 onward. Anything else is treated as legacy v1. */
+export const ACCESSORY_CONTEXT_SCHEMA_VERSION = 2;

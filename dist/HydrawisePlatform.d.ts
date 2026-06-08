@@ -6,19 +6,20 @@ import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformCon
 export declare class HydrawisePlatform implements DynamicPlatformPlugin {
     readonly log: Logger;
     readonly api: API;
+    private readonly cfg;
     private readonly hydrawise;
     private pollingInterval;
     readonly overrideRunningTime: number | undefined;
     accessories: PlatformAccessory[];
     private sprinklers;
     private intervals;
+    private startTimeouts;
     constructor(log: Logger, config: PlatformConfig, api: API);
     private onLaunch;
+    private startPollingFor;
     private onShutdown;
     private pollOnce;
-    /** Reconcile a single controller's zone list with our sprinkler wrappers. */
     private reconcile;
-    /** Invoked by Homebridge to restore cached accessories from disk at startup. */
     configureAccessory(accessory: PlatformAccessory): void;
 }
 //# sourceMappingURL=HydrawisePlatform.d.ts.map

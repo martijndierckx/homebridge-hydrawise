@@ -1,14 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_POLLING_INTERVAL_CLOUD = exports.DEFAULT_POLLING_INTERVAL_LOCAL = exports.PLUGIN_NAME = exports.PLATFORM_NAME = void 0;
+exports.ACCESSORY_CONTEXT_SCHEMA_VERSION = exports.DEFAULT_POLLING_INTERVAL_CLOUD = exports.DEFAULT_POLLING_INTERVAL_LOCAL = exports.PLUGIN_NAME = exports.PLATFORM_NAME = void 0;
 exports.PLATFORM_NAME = 'HydrawisePlatform';
 exports.PLUGIN_NAME = 'homebridge-hydrawise';
-/**
- * This default polling interval is used for local connections if no override is provided in the config
- */
+/** Default polling interval (ms) for LOCAL connections when not overridden via config. */
 exports.DEFAULT_POLLING_INTERVAL_LOCAL = 1000;
-/**
- * This default polling interval is used for local connections if no override is provided in the config
- */
+/** Default polling interval (ms) for CLOUD connections (per controller) when not overridden via config. */
 exports.DEFAULT_POLLING_INTERVAL_CLOUD = 12000;
+/** Schema version stamped on `accessory.context` from v2 onward. Anything else is treated as legacy v1. */
+exports.ACCESSORY_CONTEXT_SCHEMA_VERSION = 2;
 //# sourceMappingURL=settings.js.map

@@ -8,34 +8,36 @@ exports.HydrawisePlatform = void 0;
 const settings_1 = require("./settings");
 const hydrawise_api_1 = require("hydrawise-api");
 const HydrawiseSprinkler_1 = require("./HydrawiseSprinkler");
+const HydrawiseConfig_1 = require("./HydrawiseConfig");
 class HydrawisePlatform {
     log;
     api;
+    cfg;
     hydrawise;
     pollingInterval = 0;
-    overrideRunningTime = undefined;
+    overrideRunningTime;
     accessories = [];
     sprinklers = [];
     intervals = [];
+    startTimeouts = [];
     constructor(log, config, api) {
         this.log = log;
         this.api = api;
+        this.cfg = (0, HydrawiseConfig_1.parseConfig)(config, log);
+        this.overrideRunningTime = this.cfg.overrideRunningTime;
         this.hydrawise = new hydrawise_api_1.Hydrawise({
-            type: config.type == 'LOCAL' ? hydrawise_api_1.HydrawiseConnectionType.LOCAL : hydrawise_api_1.HydrawiseConnectionType.CLOUD,
-            host: config.host,
-            user: config.user,
-            password: config.password,
-            key: config.api_key
+            type: this.cfg.connectionType,
+            host: this.cfg.host,
+            user: this.cfg.user,
+            password: this.cfg.password,
+            key: this.cfg.apiKey
         });
-        if (config.running_time !== undefined && typeof config.running_time == 'number') {
-            this.overrideRunningTime = config.running_time;
-        }
         api.on("didFinishLaunching" /* APIEvent.DID_FINISH_LAUNCHING */, () => {
-            void this.onLaunch(config);
+            void this.onLaunch();
         });
         api.on("shutdown" /* APIEvent.SHUTDOWN */, () => this.onShutdown());
     }
-    async onLaunch(config) {
+    async onLaunch() {
         try {
             const controllers = await this.hydrawise.getControllers();
             if (controllers.length === 0) {
@@ -45,8 +47,8 @@ class HydrawisePlatform {
             if (this.overrideRunningTime !== undefined) {
                 this.log.debug(`[CONFIG] Overriding the run time for each zone when running: ${this.overrideRunningTime} seconds`);
             }
-            if (config.polling_interval !== undefined && typeof config.polling_interval == 'number') {
-                this.pollingInterval = config.polling_interval;
+            if (this.cfg.pollingIntervalOverride !== undefined) {
+                this.pollingInterval = this.cfg.pollingIntervalOverride;
             }
             else if (this.hydrawise.type == hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
                 this.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_LOCAL;
@@ -56,22 +58,38 @@ class HydrawisePlatform {
                 this.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_CLOUD * controllers.length;
             }
             this.log.debug(`[CONFIG] Polling interval: ${this.pollingInterval} milliseconds`);
-            for (const controller of controllers) {
+            // Stagger first polls so steady-state remains spread across the interval
+            // (controller 0 starts at t=0, controller N at t = N * interval/count).
+            const stagger = Math.floor(this.pollingInterval / controllers.length);
+            controllers.forEach((controller, index) => {
                 this.log.debug(`Retrieved a Hydrawise controller: ${controller.name}`);
-                await this.pollOnce(controller);
-                const handle = setInterval(() => {
-                    void this.pollOnce(controller);
-                }, this.pollingInterval);
-                this.intervals.push(handle);
-            }
+                const startAfter = index * stagger;
+                if (startAfter === 0) {
+                    this.startPollingFor(controller);
+                }
+                else {
+                    const t = setTimeout(() => this.startPollingFor(controller), startAfter);
+                    this.startTimeouts.push(t);
+                }
+            });
         }
         catch (err) {
             this.log.error(`Initial controller fetch failed: ${err.message}`);
         }
     }
+    startPollingFor(controller) {
+        void this.pollOnce(controller);
+        const handle = setInterval(() => {
+            void this.pollOnce(controller);
+        }, this.pollingInterval);
+        this.intervals.push(handle);
+    }
     onShutdown() {
-        for (const handle of this.intervals)
-            clearInterval(handle);
+        for (const t of this.startTimeouts)
+            clearTimeout(t);
+        for (const h of this.intervals)
+            clearInterval(h);
+        this.startTimeouts = [];
         this.intervals = [];
     }
     async pollOnce(controller) {
@@ -83,9 +101,7 @@ class HydrawisePlatform {
             this.log.error(`Poll failed for ${controller.name}: ${err.message}`);
         }
     }
-    /** Reconcile a single controller's zone list with our sprinkler wrappers. */
     reconcile(controller, zones) {
-        // Track which of this controller's sprinklers haven't been seen this poll.
         let toCheckSprinklers = this.sprinklers.filter((item) => item.zone.controller?.id == controller.id);
         for (const zone of zones) {
             const existingSprinkler = this.sprinklers.find((x) => x.zone.relayID == zone.relayID);
@@ -100,14 +116,12 @@ class HydrawisePlatform {
                 this.sprinklers.push(newSprinkler);
             }
         }
-        // Zones that disappeared mid-life — drop their sprinklers.
         for (const sprinkler of toCheckSprinklers) {
             this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
             sprinkler.unregister();
             this.sprinklers = this.sprinklers.filter((item) => item !== sprinkler);
         }
     }
-    /** Invoked by Homebridge to restore cached accessories from disk at startup. */
     configureAccessory(accessory) {
         this.log.info(`Configuring Sprinkler from cache: ${accessory.displayName}`);
         this.accessories.push(accessory);
