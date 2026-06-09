@@ -13,7 +13,7 @@ import {
 } from './settings';
 import { Hydrawise, HydrawiseConnectionType, HydrawiseZone, HydrawiseController } from 'hydrawise-api';
 import { HydrawiseSprinkler } from './HydrawiseSprinkler';
-import { parseConfig, type ParsedHydrawiseConfig } from './HydrawiseConfig';
+import { parseConfig, validateConfig, type ParsedHydrawiseConfig } from './HydrawiseConfig';
 import { computeControllerKey, computeStableKey, computeLegacyUUID } from './stableKey';
 import type { HydrawiseAccessoryContext } from './types';
 
@@ -23,7 +23,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   public readonly log: Logger;
   public readonly api: API;
   private readonly cfg: ParsedHydrawiseConfig;
-  private readonly hydrawise: Hydrawise;
+  private readonly hydrawise: Hydrawise | undefined;
   private pollingInterval = 0;
   public readonly overrideRunningTime: number | undefined;
 
@@ -46,6 +46,14 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     this.cfg = parseConfig(config, log);
     this.overrideRunningTime = this.cfg.overrideRunningTime;
 
+    const validationError = validateConfig(this.cfg);
+    if (validationError !== null) {
+      this.log.error(
+        `[CONFIG] Plugin disabled — ${validationError}. Cached accessories will be preserved; update your Homebridge config to enable polling.`
+      );
+      return;
+    }
+
     this.hydrawise = new Hydrawise({
       type: this.cfg.connectionType,
       host: this.cfg.host,
@@ -61,6 +69,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   }
 
   private async onLaunch(): Promise<void> {
+    if (this.hydrawise === undefined) return;
     try {
       const controllers = await this.hydrawise.getControllers();
       if (controllers.length === 0) {
@@ -74,7 +83,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
 
       if (this.cfg.pollingIntervalOverride !== undefined) {
         this.pollingInterval = this.cfg.pollingIntervalOverride;
-      } else if (this.hydrawise.type == HydrawiseConnectionType.LOCAL) {
+      } else if (this.cfg.connectionType === HydrawiseConnectionType.LOCAL) {
         this.pollingInterval = DEFAULT_POLLING_INTERVAL_LOCAL;
       } else {
         this.pollingInterval = DEFAULT_POLLING_INTERVAL_CLOUD * controllers.length;
@@ -82,7 +91,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       this.log.debug(`[CONFIG] Polling interval: ${this.pollingInterval} milliseconds`);
 
       // Stamp expected controllers up front so the sweep knows the full set even before any poll completes.
-      this.expectedControllerKeys = new Set(controllers.map((c) => computeControllerKey(c, this.hydrawise.type)));
+      this.expectedControllerKeys = new Set(controllers.map((c) => computeControllerKey(c, this.cfg.connectionType)));
 
       const stagger = Math.floor(this.pollingInterval / controllers.length);
       controllers.forEach((controller, index) => {
@@ -118,7 +127,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
   private async pollOnce(controller: HydrawiseController): Promise<void> {
     try {
       const zones = await controller.getZones();
-      const controllerKey = computeControllerKey(controller, this.hydrawise.type);
+      const controllerKey = computeControllerKey(controller, this.cfg.connectionType);
       const isFirstSuccessfulPoll = !this.firstPollOK.has(controllerKey);
       this.reconcile(controller, controllerKey, zones);
       if (isFirstSuccessfulPoll) {
@@ -203,7 +212,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     const matchedThisPoll = new Set<string>();
 
     for (const zone of zones) {
-      const stableKey = computeStableKey(zone, controller, this.hydrawise.type);
+      const stableKey = computeStableKey(zone, controller, this.cfg.connectionType);
       const existingSprinkler = this.sprinklers.find((s) => s.stableKey === stableKey);
 
       if (existingSprinkler !== undefined) {
@@ -222,7 +231,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       const newSprinkler = new HydrawiseSprinkler(zone, this, {
         stableKey,
         controllerKey,
-        connectionType: this.hydrawise.type,
+        connectionType: this.cfg.connectionType,
         cachedAccessory: cached
       });
       this.sprinklers.push(newSprinkler);
@@ -259,7 +268,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     if (primary) return primary;
 
     // 2. SECONDARY (CLOUD) — legacy v1 hashed relayID with a name guard.
-    if (this.hydrawise.type === HydrawiseConnectionType.CLOUD) {
+    if (this.cfg.connectionType === HydrawiseConnectionType.CLOUD) {
       const legacyUUID = computeLegacyUUID(zone, this.api);
       const secondary = unwrapped.find(
         (a) => a.UUID === legacyUUID && a.displayName === zone.name && a.context?.schemaVersion !== ACCESSORY_CONTEXT_SCHEMA_VERSION
@@ -268,7 +277,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     }
 
     // 3. TERTIARY (LOCAL) — name + controllerKey-or-legacy.
-    if (this.hydrawise.type === HydrawiseConnectionType.LOCAL) {
+    if (this.cfg.connectionType === HydrawiseConnectionType.LOCAL) {
       const nameMatches = unwrapped.filter((a) => a.displayName === zone.name);
       // Refuse on duplicate names (ambiguous).
       const eligible = nameMatches.filter(

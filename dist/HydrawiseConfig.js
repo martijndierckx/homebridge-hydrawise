@@ -1,7 +1,30 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateConfig = validateConfig;
 exports.parseConfig = parseConfig;
 const hydrawise_api_1 = require("hydrawise-api");
+/**
+ * Returns a human-readable error string if the parsed config is missing the
+ * fields required to actually talk to a Hydrawise controller, or null if OK.
+ * Used to keep the plugin idle (rather than crash-looping Homebridge) when the
+ * user hasn't filled in credentials yet.
+ */
+function validateConfig(cfg) {
+    if (cfg.connectionType === hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
+        const missing = [];
+        if (!cfg.host)
+            missing.push('host');
+        if (!cfg.password)
+            missing.push('password');
+        if (missing.length > 0) {
+            return `LOCAL connection requires: ${missing.join(', ')}`;
+        }
+    }
+    else if (!cfg.apiKey) {
+        return 'CLOUD connection requires: api_key';
+    }
+    return null;
+}
 /**
  * Parses raw Homebridge platform config into a typed, validated shape.
  * Invalid values are logged and ignored rather than thrown — preserves v1's lenient behavior.

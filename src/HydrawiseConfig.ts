@@ -12,6 +12,26 @@ export interface ParsedHydrawiseConfig {
 }
 
 /**
+ * Returns a human-readable error string if the parsed config is missing the
+ * fields required to actually talk to a Hydrawise controller, or null if OK.
+ * Used to keep the plugin idle (rather than crash-looping Homebridge) when the
+ * user hasn't filled in credentials yet.
+ */
+export function validateConfig(cfg: ParsedHydrawiseConfig): string | null {
+  if (cfg.connectionType === HydrawiseConnectionType.LOCAL) {
+    const missing: string[] = [];
+    if (!cfg.host) missing.push('host');
+    if (!cfg.password) missing.push('password');
+    if (missing.length > 0) {
+      return `LOCAL connection requires: ${missing.join(', ')}`;
+    }
+  } else if (!cfg.apiKey) {
+    return 'CLOUD connection requires: api_key';
+  }
+  return null;
+}
+
+/**
  * Parses raw Homebridge platform config into a typed, validated shape.
  * Invalid values are logged and ignored rather than thrown — preserves v1's lenient behavior.
  */

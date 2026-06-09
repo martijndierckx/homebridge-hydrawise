@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { MockLogger } from '../mocks/mockHomebridgeApi';
-import { parseConfig } from '../../src/HydrawiseConfig';
+import { parseConfig, validateConfig } from '../../src/HydrawiseConfig';
 import { HydrawiseConnectionType } from 'hydrawise-api';
 
 describe('parseConfig', () => {
@@ -43,5 +43,42 @@ describe('parseConfig', () => {
     const log = new MockLogger();
     const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p', polling_interval: 500 } as any, log as any);
     expect(cfg.pollingIntervalOverride).toBe(500);
+  });
+});
+
+describe('validateConfig', () => {
+  const log = new MockLogger();
+
+  it('accepts a complete LOCAL config', () => {
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p' } as any, log as any);
+    expect(validateConfig(cfg)).toBeNull();
+  });
+
+  it('accepts a complete CLOUD config', () => {
+    const cfg = parseConfig({ platform: 'X', type: 'CLOUD', api_key: 'k' } as any, log as any);
+    expect(validateConfig(cfg)).toBeNull();
+  });
+
+  it('rejects LOCAL config missing host and password', () => {
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL' } as any, log as any);
+    const err = validateConfig(cfg);
+    expect(err).not.toBeNull();
+    expect(err).toContain('host');
+    expect(err).toContain('password');
+  });
+
+  it('rejects LOCAL config missing only password', () => {
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h' } as any, log as any);
+    const err = validateConfig(cfg);
+    expect(err).not.toBeNull();
+    expect(err).toContain('password');
+    expect(err).not.toContain('host');
+  });
+
+  it('rejects CLOUD config (default when type unset) without api_key', () => {
+    const cfg = parseConfig({ platform: 'X' } as any, log as any);
+    const err = validateConfig(cfg);
+    expect(err).not.toBeNull();
+    expect(err).toContain('api_key');
   });
 });

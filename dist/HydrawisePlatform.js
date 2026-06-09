@@ -32,6 +32,11 @@ class HydrawisePlatform {
         this.api = api;
         this.cfg = (0, HydrawiseConfig_1.parseConfig)(config, log);
         this.overrideRunningTime = this.cfg.overrideRunningTime;
+        const validationError = (0, HydrawiseConfig_1.validateConfig)(this.cfg);
+        if (validationError !== null) {
+            this.log.error(`[CONFIG] Plugin disabled — ${validationError}. Cached accessories will be preserved; update your Homebridge config to enable polling.`);
+            return;
+        }
         this.hydrawise = new hydrawise_api_1.Hydrawise({
             type: this.cfg.connectionType,
             host: this.cfg.host,
@@ -45,6 +50,8 @@ class HydrawisePlatform {
         api.on("shutdown" /* APIEvent.SHUTDOWN */, () => this.onShutdown());
     }
     async onLaunch() {
+        if (this.hydrawise === undefined)
+            return;
         try {
             const controllers = await this.hydrawise.getControllers();
             if (controllers.length === 0) {
@@ -57,7 +64,7 @@ class HydrawisePlatform {
             if (this.cfg.pollingIntervalOverride !== undefined) {
                 this.pollingInterval = this.cfg.pollingIntervalOverride;
             }
-            else if (this.hydrawise.type == hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
+            else if (this.cfg.connectionType === hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
                 this.pollingInterval = settings_1.DEFAULT_POLLING_INTERVAL_LOCAL;
             }
             else {
@@ -65,7 +72,7 @@ class HydrawisePlatform {
             }
             this.log.debug(`[CONFIG] Polling interval: ${this.pollingInterval} milliseconds`);
             // Stamp expected controllers up front so the sweep knows the full set even before any poll completes.
-            this.expectedControllerKeys = new Set(controllers.map((c) => (0, stableKey_1.computeControllerKey)(c, this.hydrawise.type)));
+            this.expectedControllerKeys = new Set(controllers.map((c) => (0, stableKey_1.computeControllerKey)(c, this.cfg.connectionType)));
             const stagger = Math.floor(this.pollingInterval / controllers.length);
             controllers.forEach((controller, index) => {
                 this.log.info(`Retrieved a Hydrawise controller: ${controller.name}`);
@@ -101,7 +108,7 @@ class HydrawisePlatform {
     async pollOnce(controller) {
         try {
             const zones = await controller.getZones();
-            const controllerKey = (0, stableKey_1.computeControllerKey)(controller, this.hydrawise.type);
+            const controllerKey = (0, stableKey_1.computeControllerKey)(controller, this.cfg.connectionType);
             const isFirstSuccessfulPoll = !this.firstPollOK.has(controllerKey);
             this.reconcile(controller, controllerKey, zones);
             if (isFirstSuccessfulPoll) {
@@ -181,7 +188,7 @@ class HydrawisePlatform {
         let toCheckSprinklers = this.sprinklers.filter((s) => s.controllerKey === controllerKey);
         const matchedThisPoll = new Set();
         for (const zone of zones) {
-            const stableKey = (0, stableKey_1.computeStableKey)(zone, controller, this.hydrawise.type);
+            const stableKey = (0, stableKey_1.computeStableKey)(zone, controller, this.cfg.connectionType);
             const existingSprinkler = this.sprinklers.find((s) => s.stableKey === stableKey);
             if (existingSprinkler !== undefined) {
                 this.log.debug(`Received zone data for existing sprinkler: ${zone.name}`);
@@ -196,7 +203,7 @@ class HydrawisePlatform {
             const newSprinkler = new HydrawiseSprinkler_1.HydrawiseSprinkler(zone, this, {
                 stableKey,
                 controllerKey,
-                connectionType: this.hydrawise.type,
+                connectionType: this.cfg.connectionType,
                 cachedAccessory: cached
             });
             this.sprinklers.push(newSprinkler);
@@ -224,14 +231,14 @@ class HydrawisePlatform {
         if (primary)
             return primary;
         // 2. SECONDARY (CLOUD) — legacy v1 hashed relayID with a name guard.
-        if (this.hydrawise.type === hydrawise_api_1.HydrawiseConnectionType.CLOUD) {
+        if (this.cfg.connectionType === hydrawise_api_1.HydrawiseConnectionType.CLOUD) {
             const legacyUUID = (0, stableKey_1.computeLegacyUUID)(zone, this.api);
             const secondary = unwrapped.find((a) => a.UUID === legacyUUID && a.displayName === zone.name && a.context?.schemaVersion !== settings_1.ACCESSORY_CONTEXT_SCHEMA_VERSION);
             if (secondary)
                 return secondary;
         }
         // 3. TERTIARY (LOCAL) — name + controllerKey-or-legacy.
-        if (this.hydrawise.type === hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
+        if (this.cfg.connectionType === hydrawise_api_1.HydrawiseConnectionType.LOCAL) {
             const nameMatches = unwrapped.filter((a) => a.displayName === zone.name);
             // Refuse on duplicate names (ambiguous).
             const eligible = nameMatches.filter((a) => a.context?.schemaVersion !== settings_1.ACCESSORY_CONTEXT_SCHEMA_VERSION ||
