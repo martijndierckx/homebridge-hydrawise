@@ -80,10 +80,26 @@ A list of `relay` **numbers** to exclude, e.g. `"exclude_relays": [11]`.
 - **`HydrawiseConfig.ts`** — parse `exclude_relays` into `excludeRelays: number[]`.
   Non-numbers are logged and ignored (consistent with existing lenient parsing).
   Absent/empty → `[]`.
-- **`HydrawisePlatform.reconcile()`** — skip zones whose `zone.zone` (the relay
-  number) is in `excludeRelays`: never wrapped, never registered. If an excluded
-  relay is already present as a cached/registered accessory (user added it to the
-  list later), it is removed on the next reconcile.
+- **`HydrawisePlatform.reconcile()`** — in the per-zone loop, branch on exclusion
+  **before** the adopt/create logic. For a zone whose `zone.zone` (relay number)
+  is in `excludeRelays`:
+  - never wrap/create a sprinkler for it, and
+  - **actively remove any accessory that already exists for it**, so the relay
+    leaves HomeKit rather than lingering as a ghost. This covers all entry
+    states:
+    - an active sprinkler (relay was previously included) → `unregister()` +
+      drop from `sprinklers`;
+    - a **cached accessory restored on reboot** (`configureAccessory()` populated
+      `this.accessories`, but the relay is now excluded) → locate it via the
+      existing `findCachedAccessory` three-step match (PRIMARY stableKey,
+      SECONDARY/TERTIARY name) and `unregisterPlatformAccessories`, dropping it
+      from `this.accessories`.
+
+  Because the API now surfaces **all** LOCAL relays every poll, an excluded relay
+  is always present in the live zone list, so this branch reliably fires after a
+  reboot. **Reboot requirement (explicit):** after restarting Homebridge with a
+  relay number newly added to `exclude_relays`, that relay's cached accessory
+  MUST be unregistered on the first reconcile — verified by test.
 - **`config.schema.json`** — add an `exclude_relays` array-of-numbers field under
   "Advanced Settings", described as the relay number shown in the startup
   "DETECTED ZONES" log.
@@ -117,8 +133,11 @@ is a general safety net rather than the primary fix.)
   entries ignored+logged, absent → `[]`.
 - `reconcile` / `staleSweep.test.ts`:
   - excluded relay number is never registered;
-  - a previously-registered relay added to the exclude list is removed on next
-    reconcile;
+  - **reboot path:** a cached accessory (present in `this.accessories` via
+    `configureAccessory`, no live sprinkler) whose relay number is in
+    `exclude_relays` is unregistered on the first reconcile;
+  - an active sprinkler whose relay is added to the exclude list is removed on
+    next reconcile;
   - a zone missing for < 3 polls survives; missing for ≥ 3 polls is removed.
 - Characterization: a LOCAL `type:110` zone with a real name produces an
   accessory (guards against the filter regression returning).
