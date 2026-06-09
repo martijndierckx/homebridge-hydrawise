@@ -68,7 +68,7 @@ class HydrawisePlatform {
             this.expectedControllerKeys = new Set(controllers.map((c) => (0, stableKey_1.computeControllerKey)(c, this.hydrawise.type)));
             const stagger = Math.floor(this.pollingInterval / controllers.length);
             controllers.forEach((controller, index) => {
-                this.log.debug(`Retrieved a Hydrawise controller: ${controller.name}`);
+                this.log.info(`Retrieved a Hydrawise controller: ${controller.name}`);
                 const startAfter = index * stagger;
                 if (startAfter === 0) {
                     this.startPollingFor(controller);
@@ -107,6 +107,11 @@ class HydrawisePlatform {
             if (isFirstSuccessfulPoll) {
                 this.firstPollOK.add(controllerKey);
                 this.firstPollZoneCount.set(controllerKey, zones.length);
+                if (zones.length === 0) {
+                    this.log.warn(`Controller '${controller.name}' returned 0 zones on first poll. ` +
+                        `If you expected zones here, your controller may be returning all relays as unconfigured ` +
+                        `(LOCAL: relays with type=110 are filtered as empty slots). Run homebridge with -D for details.`);
+                }
                 this.maybeSweepController(controllerKey);
                 this.maybeSweepGlobalV1();
             }

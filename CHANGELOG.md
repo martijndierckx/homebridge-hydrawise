@@ -1,6 +1,17 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.1
+
+### Fixed
+
+- **Zero accessories after a fresh install or controller reset.** Caused by a bug in `hydrawise-api`'s LOCAL zone filter that dropped real zones with `lastwaterepoch === 0` (never watered). Bumped `hydrawise-api` to `^2.0.1`, which restores the original `type === 110` filter for unconfigured relay slots.
+
+### Changed
+
+- `Retrieved a Hydrawise controller: …` promoted from `debug` to `info` so users get a visible "the plugin reached the controller" signal at default log level.
+- First poll returning zero zones now emits a `warn` instead of disappearing into debug-level silence, with a pointer to the LOCAL filter behavior.
+
+## 2.0.0
 
 ### Fixed
 
