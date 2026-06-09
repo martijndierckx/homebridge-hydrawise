@@ -4,12 +4,12 @@
   "singular": false,
   "schema": {
     "type": "object",
+    "required": ["name", "type"],
     "properties": {
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "Hydrawise",
-        "required": true
+        "default": "Hydrawise"
       },
       "type": {
         "title": "Connection Type",
@@ -25,8 +25,7 @@
             "enum": ["CLOUD"]
           }
         ],
-        "description": "Use a local connection where possible. This type of connection suffers no delays and has no rate limit. The cloud connection will only allow 30 requests every 5 min.",
-        "required": true
+        "description": "Use a local connection where possible. This type of connection suffers no delays and has no rate limit. The cloud connection will only allow 30 requests every 5 min."
       },
       "api_key": {
         "title": "Hydrawise Cloud API key",
