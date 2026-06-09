@@ -50,6 +50,6 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
-    "hydrawise-api": ">=1.2.1"
+    "hydrawise-api": "^2.0.0"
   }
 }
