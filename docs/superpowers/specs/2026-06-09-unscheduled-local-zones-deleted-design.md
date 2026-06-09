@@ -101,8 +101,16 @@ A list of `relay` **numbers** to exclude, e.g. `"exclude_relays": [11]`.
   relay number newly added to `exclude_relays`, that relay's cached accessory
   MUST be unregistered on the first reconcile — verified by test.
 - **`config.schema.json`** — add an `exclude_relays` array-of-numbers field under
-  "Advanced Settings", described as the relay number shown in the startup
-  "DETECTED ZONES" log.
+  "Advanced Settings". The label and help text must make the **LOCAL-only** scope
+  explicit so users don't expect it to affect CLOUD:
+  - **title:** `Excluded zones (LOCAL only)`
+  - **description:** `LOCAL connections only. Relay numbers to hide from HomeKit
+    — e.g. empty/unused relay slots. Use the number shown in the "DETECTED ZONES"
+    log on Homebridge startup (the [N] value). Has no effect on CLOUD
+    connections.`
+  - The field is shown only when `model.type == 'LOCAL'` (mirrors the existing
+    `host`/`user` LOCAL conditions in the form), so it doesn't surface for CLOUD
+    setups at all.
 - **Scope:** LOCAL is single-controller, so relay numbers are unambiguous. The
   field is harmless if set on CLOUD but is documented as a LOCAL feature.
 
