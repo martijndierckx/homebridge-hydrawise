@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.0
+
+### Fixed
+
+- **Issue #42 — LOCAL valves without a watering schedule are no longer deleted from HomeKit when they stop running.** Previously, a relay that had never been scheduled would disappear from HomeKit after its first poll because `hydrawise-api` did not surface it. Requires `hydrawise-api ≥ 2.0.2`, which now returns all LOCAL relays regardless of schedule status.
+
+### Added
+
+- `exclude_relays` config option (LOCAL connections only) — accepts an array of relay numbers to hide from HomeKit. On startup the plugin logs a **"DETECTED ZONES"** line listing every relay number so users can easily identify which ones to exclude.
+
+### Changed
+
+- Accessory removal is now **debounced**: a zone must be absent from three consecutive polls before it is unregistered from HomeKit. This prevents transient API blips or brief connectivity hiccups from silently dropping zones.
+
 ## 2.0.1
 
 ### Fixed
