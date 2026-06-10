@@ -208,10 +208,17 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
 
   /** Reconcile a controller's current zone list with our sprinkler wrappers (stable-key matching). */
   private reconcile(controller: HydrawiseController, controllerKey: string, zones: HydrawiseZone[]): void {
+    // Excluded relays: remove any existing accessory (active or cached-from-reboot) and drop from the working set.
+    const isExcluded = (z: HydrawiseZone): boolean => this.cfg.excludeRelays.includes(z.zone);
+    for (const zone of zones.filter(isExcluded)) {
+      this.removeExcludedZone(zone, controller, controllerKey);
+    }
+    const activeZones = zones.filter((z) => !isExcluded(z));
+
     let toCheckSprinklers = this.sprinklers.filter((s) => s.controllerKey === controllerKey);
     const matchedThisPoll = new Set<string>();
 
-    for (const zone of zones) {
+    for (const zone of activeZones) {
       const stableKey = computeStableKey(zone, controller, this.cfg.connectionType);
       const existingSprinkler = this.sprinklers.find((s) => s.stableKey === stableKey);
 
@@ -245,6 +252,24 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
       sprinkler.unregister();
       this.sprinklers = this.sprinklers.filter((s) => s !== sprinkler);
+    }
+  }
+
+  /** Remove an accessory for a relay that is in the exclude list — active sprinkler or a cached accessory restored on reboot. */
+  private removeExcludedZone(zone: HydrawiseZone, controller: HydrawiseController, controllerKey: string): void {
+    const stableKey = computeStableKey(zone, controller, this.cfg.connectionType);
+    const sprinkler = this.sprinklers.find((s) => s.stableKey === stableKey);
+    if (sprinkler !== undefined) {
+      this.log.info(`Removing excluded zone (relay ${zone.zone}): ${zone.name}`);
+      sprinkler.unregister();
+      this.sprinklers = this.sprinklers.filter((s) => s !== sprinkler);
+      return;
+    }
+    const cached = this.findCachedAccessory(zone, controller, controllerKey, stableKey);
+    if (cached !== undefined) {
+      this.log.info(`Removing excluded zone from cache (relay ${zone.zone}): ${zone.name}`);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [cached]);
+      this.accessories = this.accessories.filter((a) => a !== cached);
     }
   }
 
