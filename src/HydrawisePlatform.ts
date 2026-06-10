@@ -134,6 +134,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       if (isFirstSuccessfulPoll) {
         this.firstPollOK.add(controllerKey);
         this.firstPollZoneCount.set(controllerKey, zones.length);
+        this.logDetectedZones(zones);
         if (zones.length === 0) {
           this.log.warn(
             `Controller '${controller.name}' returned 0 zones on first poll. ` +
@@ -330,6 +331,13 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
     }
 
     return undefined;
+  }
+
+  /** One-time grouped log of all relays a controller reported, so users can find the number to put in exclude_relays. */
+  private logDetectedZones(zones: HydrawiseZone[]): void {
+    if (zones.length === 0) return;
+    const lines = ['DETECTED ZONES:', ...zones.map((z) => `- [${z.zone}] - ${z.name}`)];
+    for (const line of lines) this.log.info(line);
   }
 
   configureAccessory(accessory: PlatformAccessory): void {
