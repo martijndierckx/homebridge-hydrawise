@@ -9,7 +9,8 @@ import {
   DEFAULT_POLLING_INTERVAL_LOCAL,
   ACCESSORY_CONTEXT_SCHEMA_VERSION,
   PLUGIN_NAME,
-  PLATFORM_NAME
+  PLATFORM_NAME,
+  MAX_MISSED_POLLS
 } from './settings';
 import { Hydrawise, HydrawiseConnectionType, HydrawiseZone, HydrawiseController } from 'hydrawise-api';
 import { HydrawiseSprinkler } from './HydrawiseSprinkler';
@@ -225,6 +226,7 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
       if (existingSprinkler !== undefined) {
         this.log.debug(`Received zone data for existing sprinkler: ${zone.name}`);
         existingSprinkler.update(zone);
+        existingSprinkler.missedPolls = 0;
         toCheckSprinklers = toCheckSprinklers.filter((s) => s !== existingSprinkler);
         matchedThisPoll.add(existingSprinkler.uuid);
         continue;
@@ -247,11 +249,19 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
 
     this.matchedUUIDsByController.set(controllerKey, matchedThisPoll);
 
-    // Per-poll removal of zones that disappeared mid-life on THIS controller.
+    // Per-poll: zones absent from THIS controller's poll. Debounce removal so a transient
+    // disappearance doesn't destroy the accessory (and its HomeKit room/automation bindings).
     for (const sprinkler of toCheckSprinklers) {
-      this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
-      sprinkler.unregister();
-      this.sprinklers = this.sprinklers.filter((s) => s !== sprinkler);
+      sprinkler.missedPolls += 1;
+      if (sprinkler.missedPolls >= MAX_MISSED_POLLS) {
+        this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
+        sprinkler.unregister();
+        this.sprinklers = this.sprinklers.filter((s) => s !== sprinkler);
+      } else {
+        this.log.debug(
+          `Zone '${sprinkler.zone.name}' absent from poll (${sprinkler.missedPolls}/${MAX_MISSED_POLLS}) — keeping for now`
+        );
+      }
     }
   }
 
