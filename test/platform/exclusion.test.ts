@@ -87,21 +87,37 @@ describe('exclude_relays', () => {
     expect(api.unregistered.some((a: any) => a.displayName === 'Zone 3')).toBe(true);
   });
 
-  it('removes an active sprinkler whose relay becomes excluded across polls', async () => {
+  it('removes an active sprinkler when its relay is added to the exclude list and re-polled', async () => {
     const api = createMockApi();
     const log = new MockLogger();
     const c = new MockHydrawiseController(undefined, 'http://h/', 'h');
+    // poll 1: zone is present and NOT excluded → sprinkler should be created
+    c.pushZones([new MockHydrawiseZone(1003, 3, 'Zone 3')]);
+    // poll 2: zone is still returned by the controller, but will now be excluded → sprinkler should be removed
     c.pushZones([new MockHydrawiseZone(1003, 3, 'Zone 3')]);
     controllerHolder.controllers = [c];
 
+    // Construct platform with NO exclusions so Zone 3 is registered on first poll
     const platform = new HydrawisePlatform(
       log as any,
-      { platform: 'HydrawisePlatform', name: 'H', type: 'LOCAL', host: 'h', password: 'p', exclude_relays: [3] } as any,
+      { platform: 'HydrawisePlatform', name: 'H', type: 'LOCAL', host: 'h', password: 'p', exclude_relays: [] } as any,
       api as any
     );
     api.emit(APIEvent.DID_FINISH_LAUNCHING);
     await tick();
 
+    // After poll 1: Zone 3 must be present
+    expect(platform.accessories.map((a) => a.displayName)).toContain('Zone 3');
+
+    // Mutate config at runtime to exclude relay 3 — simulates user adding it to the exclude list
+    (platform as any).cfg.excludeRelays = [3];
+
+    // Trigger a second poll manually
+    await (platform as any).pollOnce(c);
+
+    // After poll 2: Zone 3 must be gone from accessories …
     expect(platform.accessories.map((a) => a.displayName)).not.toContain('Zone 3');
+    // … and must have been unregistered via the HomeKit API
+    expect(api.unregistered.some((a: any) => a.displayName === 'Zone 3')).toBe(true);
   });
 });
