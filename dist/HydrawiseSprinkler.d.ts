@@ -18,6 +18,8 @@ export declare class HydrawiseSprinkler {
     readonly controllerKey: string;
     readonly connectionType: HydrawiseConnectionType;
     zone: HydrawiseZone;
+    /** Consecutive polls this sprinkler's zone has been absent from its controller. Reset to 0 when seen. */
+    missedPolls: number;
     platform: HydrawisePlatform;
     constructor(zone: HydrawiseZone, platform: HydrawisePlatform, opts: HydrawiseSprinklerOptions);
     private stampContext;

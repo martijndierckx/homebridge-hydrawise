@@ -11,6 +11,8 @@ class HydrawiseSprinkler {
     controllerKey;
     connectionType;
     zone;
+    /** Consecutive polls this sprinkler's zone has been absent from its controller. Reset to 0 when seen. */
+    missedPolls = 0;
     platform;
     constructor(zone, platform, opts) {
         this.zone = zone;

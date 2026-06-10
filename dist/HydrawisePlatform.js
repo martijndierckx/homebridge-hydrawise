@@ -114,10 +114,11 @@ class HydrawisePlatform {
             if (isFirstSuccessfulPoll) {
                 this.firstPollOK.add(controllerKey);
                 this.firstPollZoneCount.set(controllerKey, zones.length);
+                this.logDetectedZones(zones);
                 if (zones.length === 0) {
                     this.log.warn(`Controller '${controller.name}' returned 0 zones on first poll. ` +
-                        `If you expected zones here, your controller may be returning all relays as unconfigured ` +
-                        `(LOCAL: relays with type=110 are filtered as empty slots). Run homebridge with -D for details.`);
+                        `All relays the controller reports are now surfaced (no type-based filtering), ` +
+                        `so 0 zones means the controller returned no relays at all. Run homebridge with -D for details.`);
                 }
                 this.maybeSweepController(controllerKey);
                 this.maybeSweepGlobalV1();
@@ -185,14 +186,21 @@ class HydrawisePlatform {
     }
     /** Reconcile a controller's current zone list with our sprinkler wrappers (stable-key matching). */
     reconcile(controller, controllerKey, zones) {
+        // Excluded relays: remove any existing accessory (active or cached-from-reboot) and drop from the working set.
+        const isExcluded = (z) => this.cfg.excludeRelays.includes(z.zone);
+        for (const zone of zones.filter(isExcluded)) {
+            this.removeExcludedZone(zone, controller, controllerKey);
+        }
+        const activeZones = zones.filter((z) => !isExcluded(z));
         let toCheckSprinklers = this.sprinklers.filter((s) => s.controllerKey === controllerKey);
         const matchedThisPoll = new Set();
-        for (const zone of zones) {
+        for (const zone of activeZones) {
             const stableKey = (0, stableKey_1.computeStableKey)(zone, controller, this.cfg.connectionType);
             const existingSprinkler = this.sprinklers.find((s) => s.stableKey === stableKey);
             if (existingSprinkler !== undefined) {
                 this.log.debug(`Received zone data for existing sprinkler: ${zone.name}`);
                 existingSprinkler.update(zone);
+                existingSprinkler.missedPolls = 0;
                 toCheckSprinklers = toCheckSprinklers.filter((s) => s !== existingSprinkler);
                 matchedThisPoll.add(existingSprinkler.uuid);
                 continue;
@@ -210,11 +218,35 @@ class HydrawisePlatform {
             matchedThisPoll.add(newSprinkler.uuid);
         }
         this.matchedUUIDsByController.set(controllerKey, matchedThisPoll);
-        // Per-poll removal of zones that disappeared mid-life on THIS controller.
+        // Per-poll: zones absent from THIS controller's poll. Debounce removal so a transient
+        // disappearance doesn't destroy the accessory (and its HomeKit room/automation bindings).
         for (const sprinkler of toCheckSprinklers) {
-            this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
+            sprinkler.missedPolls += 1;
+            if (sprinkler.missedPolls >= settings_1.MAX_MISSED_POLLS) {
+                this.log.info(`Removing Sprinkler for deleted Hydrawise zone: ${sprinkler.zone.name}`);
+                sprinkler.unregister();
+                this.sprinklers = this.sprinklers.filter((s) => s !== sprinkler);
+            }
+            else {
+                this.log.debug(`Zone '${sprinkler.zone.name}' absent from poll (${sprinkler.missedPolls}/${settings_1.MAX_MISSED_POLLS}) — keeping for now`);
+            }
+        }
+    }
+    /** Remove an accessory for a relay that is in the exclude list — active sprinkler or a cached accessory restored on reboot. */
+    removeExcludedZone(zone, controller, controllerKey) {
+        const stableKey = (0, stableKey_1.computeStableKey)(zone, controller, this.cfg.connectionType);
+        const sprinkler = this.sprinklers.find((s) => s.stableKey === stableKey);
+        if (sprinkler !== undefined) {
+            this.log.info(`Removing excluded zone (relay ${zone.zone}): ${zone.name}`);
             sprinkler.unregister();
             this.sprinklers = this.sprinklers.filter((s) => s !== sprinkler);
+            return;
+        }
+        const cached = this.findCachedAccessory(zone, controller, controllerKey, stableKey);
+        if (cached !== undefined) {
+            this.log.info(`Removing excluded zone from cache (relay ${zone.zone}): ${zone.name}`);
+            this.api.unregisterPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [cached]);
+            this.accessories = this.accessories.filter((a) => a !== cached);
         }
     }
     /**
@@ -251,6 +283,14 @@ class HydrawisePlatform {
                 return eligible[0];
         }
         return undefined;
+    }
+    /** One-time grouped log of all relays a controller reported, so users can find the number to put in exclude_relays. */
+    logDetectedZones(zones) {
+        if (zones.length === 0)
+            return;
+        const lines = ['DETECTED ZONES:', ...zones.map((z) => `- [${z.zone}] - ${z.name}`)];
+        for (const line of lines)
+            this.log.info(line);
     }
     configureAccessory(accessory) {
         this.log.info(`Configuring Sprinkler from cache: ${accessory.displayName}`);

@@ -8,6 +8,7 @@ export interface ParsedHydrawiseConfig {
     apiKey?: string;
     overrideRunningTime?: number;
     pollingIntervalOverride?: number;
+    excludeRelays: number[];
 }
 /**
  * Returns a human-readable error string if the parsed config is missing the

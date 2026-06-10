@@ -36,7 +36,8 @@ function parseConfig(raw, log) {
         host: typeof raw['host'] === 'string' ? raw['host'] : undefined,
         user: typeof raw['user'] === 'string' ? raw['user'] : undefined,
         password: typeof raw['password'] === 'string' ? raw['password'] : undefined,
-        apiKey: typeof raw['api_key'] === 'string' ? raw['api_key'] : undefined
+        apiKey: typeof raw['api_key'] === 'string' ? raw['api_key'] : undefined,
+        excludeRelays: []
     };
     if (raw['running_time'] !== undefined) {
         if (typeof raw['running_time'] === 'number' && raw['running_time'] > 0) {
@@ -52,6 +53,21 @@ function parseConfig(raw, log) {
         }
         else {
             log.warn(`[CONFIG] Ignoring invalid polling_interval (must be a number ≥ 200ms): ${String(raw['polling_interval'])}`);
+        }
+    }
+    if (raw['exclude_relays'] !== undefined) {
+        if (Array.isArray(raw['exclude_relays'])) {
+            for (const v of raw['exclude_relays']) {
+                if (typeof v === 'number' && Number.isInteger(v) && v > 0) {
+                    parsed.excludeRelays.push(v);
+                }
+                else {
+                    log.warn(`[CONFIG] Ignoring invalid exclude_relays entry (expected a positive relay number): ${String(v)}`);
+                }
+            }
+        }
+        else {
+            log.warn(`[CONFIG] Ignoring invalid exclude_relays (must be an array of relay numbers): ${String(raw['exclude_relays'])}`);
         }
     }
     return parsed;

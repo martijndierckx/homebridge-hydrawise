@@ -39,6 +39,8 @@ export declare class HydrawisePlatform implements DynamicPlatformPlugin {
     private maybeSweepGlobalV1;
     /** Reconcile a controller's current zone list with our sprinkler wrappers (stable-key matching). */
     private reconcile;
+    /** Remove an accessory for a relay that is in the exclude list — active sprinkler or a cached accessory restored on reboot. */
+    private removeExcludedZone;
     /**
      * Three-step cache match:
      *   1. PRIMARY  — cached accessory whose context.stableKey === this zone's stableKey.
@@ -47,6 +49,8 @@ export declare class HydrawisePlatform implements DynamicPlatformPlugin {
      * Returns undefined if no candidate qualifies. Refuses tertiary on duplicate display names.
      */
     private findCachedAccessory;
+    /** One-time grouped log of all relays a controller reported, so users can find the number to put in exclude_relays. */
+    private logDetectedZones;
     configureAccessory(accessory: PlatformAccessory): void;
 }
 export {};
