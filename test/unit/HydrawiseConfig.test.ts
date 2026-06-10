@@ -44,6 +44,32 @@ describe('parseConfig', () => {
     const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p', polling_interval: 500 } as any, log as any);
     expect(cfg.pollingIntervalOverride).toBe(500);
   });
+
+  it('parses exclude_relays into a number array', () => {
+    const log = new MockLogger();
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p', exclude_relays: [3, 11] } as any, log as any);
+    expect(cfg.excludeRelays).toEqual([3, 11]);
+  });
+
+  it('defaults exclude_relays to an empty array when absent', () => {
+    const log = new MockLogger();
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p' } as any, log as any);
+    expect(cfg.excludeRelays).toEqual([]);
+  });
+
+  it('warns and drops invalid exclude_relays entries', () => {
+    const log = new MockLogger();
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p', exclude_relays: [3, 'x', -1, 2.5] } as any, log as any);
+    expect(cfg.excludeRelays).toEqual([3]);
+    expect(log.lines.some((l) => l.level === 'warn' && l.msg.includes('exclude_relays'))).toBe(true);
+  });
+
+  it('warns and ignores exclude_relays when not an array', () => {
+    const log = new MockLogger();
+    const cfg = parseConfig({ platform: 'X', type: 'LOCAL', host: 'h', password: 'p', exclude_relays: 'nope' } as any, log as any);
+    expect(cfg.excludeRelays).toEqual([]);
+    expect(log.lines.some((l) => l.level === 'warn' && l.msg.includes('exclude_relays'))).toBe(true);
+  });
 });
 
 describe('validateConfig', () => {
