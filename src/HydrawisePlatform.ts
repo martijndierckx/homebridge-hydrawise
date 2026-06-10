@@ -138,8 +138,8 @@ export class HydrawisePlatform implements DynamicPlatformPlugin {
         if (zones.length === 0) {
           this.log.warn(
             `Controller '${controller.name}' returned 0 zones on first poll. ` +
-              `If you expected zones here, your controller may be returning all relays as unconfigured ` +
-              `(LOCAL: relays with type=110 are filtered as empty slots). Run homebridge with -D for details.`
+              `All relays the controller reports are now surfaced (no type-based filtering), ` +
+              `so 0 zones means the controller returned no relays at all. Run homebridge with -D for details.`
           );
         }
         this.maybeSweepController(controllerKey);
