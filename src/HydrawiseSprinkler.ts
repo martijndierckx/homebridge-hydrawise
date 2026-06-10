@@ -22,6 +22,8 @@ export class HydrawiseSprinkler {
   public readonly controllerKey: string;
   public readonly connectionType: HydrawiseConnectionType;
   public zone: HydrawiseZone;
+  /** Consecutive polls this sprinkler's zone has been absent from its controller. Reset to 0 when seen. */
+  public missedPolls = 0;
   public platform: HydrawisePlatform;
 
   constructor(zone: HydrawiseZone, platform: HydrawisePlatform, opts: HydrawiseSprinklerOptions) {
