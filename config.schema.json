@@ -56,6 +56,15 @@
         "title": "Running time override",
         "type": "number",
         "description": "The amount of seconds a zone should run (default: use configured run time on the Hydrawise platform)"
+      },
+      "exclude_relays": {
+        "title": "Excluded zones (LOCAL only)",
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "description": "LOCAL connections only. Relay numbers to hide from HomeKit — e.g. empty/unused relay slots. Use the number shown in the \"DETECTED ZONES\" log on Homebridge startup (the [N] value). Has no effect on CLOUD connections."
       }
     }
   },
@@ -100,6 +109,17 @@
           "key": "polling_interval",
           "validationMessage": {
             "101": "Should at least be 200 ms"
+          }
+        },
+        {
+          "key": "exclude_relays",
+          "type": "array",
+          "condition": {
+            "functionBody": "return model.type == 'LOCAL'"
+          },
+          "items": {
+            "title": "Relay number",
+            "type": "number"
           }
         }
       ]
